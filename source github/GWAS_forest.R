@@ -76,8 +76,10 @@ MR_forest_SNP <- function(df, report_form,
       Upper    = pooled_upper
     )
     
-    df_plot <- df_sub %>% select(SNP, Estimate, Lower, Upper) %>%
+    df_plot <- df_sub %>%
+      select("SNP", "Estimate", "Lower", "Upper") %>%
       bind_rows(pooled_row)
+    
     snp_order <- df_plot %>% filter(SNP != "IVW Pooled") %>% arrange(Estimate) %>% pull(SNP)
     new_levels <- c("IVW Pooled", snp_order)
     df_plot <- df_plot %>% mutate(SNP = factor(SNP, levels = new_levels))
