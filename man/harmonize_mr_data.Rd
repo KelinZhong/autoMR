@@ -22,8 +22,6 @@ Harmonizes alleles and ensures consistent effect direction between exposure
 and outcome datasets. Standardizes exposure effects to be positive.
 }
 \examples{
-\donttest{
 input_test3 <- harmonize_mr_data(df = fi_49item)
 head(input_test3)
-}
 }

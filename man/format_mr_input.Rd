@@ -45,7 +45,6 @@ A data frame formatted for MR analysis.
 Format vectors into a Mendelian Randomization input data frame
 }
 \examples{
-\donttest{
 data("fi_49item")
 
 input_test1 <- format_mr_input(
@@ -72,5 +71,4 @@ input_test2 <- format_mr_input(
   A1FREQ = fi_49item$A1FREQ_outcome
 )
 head(input_test2)
-}
 }

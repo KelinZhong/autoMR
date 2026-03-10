@@ -16,108 +16,130 @@ run_mr_analysis(
   use_mr_grip = TRUE,
   NbDistribution = 1000,
   SignifThreshold = 0.05,
-  save_all_in_one = FALSE,
-  save_csv = TRUE,
-  combined_file = "combined_results.csv",
-  save_dir = ".",
   mr_horse_n_iter = 5000,
   mr_horse_n_burnin = 1000,
   mr_grip_parameters = NULL
 )
 }
 \arguments{
-\item{MR_input_data}{Harmonised MR input data frame. Must contain Outcome and Exposure columns.}
+\item{MR_input_data}{Harmonised MR input data frame. Must contain Outcome
+and Exposure columns.}
 
-\item{outcome.form}{Character vector indicating standard output scale for each outcome (e.g., "Beta", "OR", "HR"). Defaults to "Beta".}
+\item{outcome.form}{Character vector indicating the effect scale for each
+outcome: \code{"Beta"}, \code{"OR"} (odds ratio), or \code{"HR"}
+(hazard ratio). A single value is recycled across all outcomes.
+Defaults to \code{"Beta"}.}
 
-\item{use_ivw}{Logical; whether to use Inverse Variance Weighted method.}
+\item{use_ivw}{Logical; whether to run the Inverse Variance Weighted
+(IVW) method. Default is \code{TRUE}.}
 
-\item{use_raps}{Logical; whether to use Robust Adjusted Profile Score method.}
+\item{use_raps}{Logical; whether to run the Robust Adjusted Profile Score
+(MR-RAPS) method. Default is \code{TRUE}.}
 
-\item{use_median}{Logical; whether to use Weighted Median method.}
+\item{use_median}{Logical; whether to run the Weighted Median method.
+Default is \code{TRUE}.}
 
-\item{use_egger}{Logical; whether to use MR-Egger regression.}
+\item{use_egger}{Logical; whether to run MR-Egger regression.
+Default is \code{TRUE}.}
 
-\item{use_mr_presso}{Logical; whether to use MR-PRESSO method.}
+\item{use_mr_presso}{Logical; whether to run the Mendelian Randomization
+Pleiotropy RESidual Sum and Outlier (MR-PRESSO) method.
+Default is \code{TRUE}.}
 
-\item{use_mr_horse}{Logical; whether to use MR-Horse method.}
+\item{use_mr_horse}{Logical; whether to run the MR-Horse method.
+Default is \code{TRUE}.}
 
-\item{use_mr_grip}{Logical; whether to use MR-GRIP method.}
+\item{use_mr_grip}{Logical; whether to run the Generalized Regression with
+Instrument Pairs (MR-GRIP) method. Default is \code{TRUE}.}
 
-\item{NbDistribution}{Integer; number of distributions for MR-PRESSO. Default is 1000.}
+\item{NbDistribution}{Integer; number of simulated distributions for
+MR-PRESSO. Default is \code{1000}.}
 
-\item{SignifThreshold}{Numeric; significance threshold for MR-PRESSO. Default is 0.05.}
+\item{SignifThreshold}{Numeric; significance threshold for the MR-PRESSO
+outlier test. Default is \code{0.05}.}
 
-\item{save_all_in_one}{Logical; whether to save combined results of all outcomes into a single file.}
+\item{mr_horse_n_iter}{Integer; number of Markov chain Monte Carlo (MCMC)
+iterations for MR-Horse. Default is \code{5000}.}
 
-\item{save_csv}{Logical; whether to save results as CSV files. Default is TRUE.}
+\item{mr_horse_n_burnin}{Integer; number of MCMC burn-in samples for
+MR-Horse. Default is \code{1000}.}
 
-\item{combined_file}{Character string for the combined output filename. Default is "combined_results.csv".}
-
-\item{save_dir}{Directory to save output files. Default is current directory (".").}
-
-\item{mr_horse_n_iter}{Integer; number of iterations for MR-Horse. Default is 5000.}
-
-\item{mr_horse_n_burnin}{Integer; number of burn-in samples for MR-Horse. Default is 1000.}
-
-\item{mr_grip_parameters}{List; additional parameters for the MR-GRIP method.}
+\item{mr_grip_parameters}{List of additional parameters passed to MR-GRIP.
+If \code{NULL}, default parameters are used.}
 }
 \value{
-Combined results data frame.
+A data frame combining results across all outcomes and exposures.
+  Each row represents one outcome-exposure pair. Columns include estimates,
+  confidence intervals (CI), and p-values for each method, together with
+  diagnostic flags (e.g., F-statistic below 10, significant heterogeneity).
+  Use \code{write.csv()} or \code{saveRDS()} to save the returned object.
 }
 \description{
-Performs causal inference analysis using multiple Mendelian Randomization methods
-across one or more outcomes and exposures.
+Performs causal inference analysis using multiple Mendelian Randomization
+(MR) methods across one or more outcomes and exposures. Returns a combined
+results data frame. To save the output, use standard R functions such as
+\code{write.csv()} or \code{saveRDS()} on the returned object.
 }
 \examples{
+# Minimal toy example (fast, automatically tested)
+toy_data <- data.frame(
+  Instrument    = paste0("SNP", 1:5),
+  beta_exposure = c(0.10, 0.15, 0.12, 0.09, 0.11),
+  se_exposure   = c(0.02, 0.03, 0.02, 0.02, 0.02),
+  beta_outcome  = c(0.05, 0.08, 0.06, 0.04, 0.07),
+  se_outcome    = c(0.01, 0.02, 0.01, 0.01, 0.02),
+  Outcome       = "Outcome1",
+  Exposure      = "Exposure1"
+)
+res <- run_mr_analysis(
+  MR_input_data = toy_data,
+  use_ivw    = TRUE,  use_raps   = TRUE,  use_median = FALSE,
+  use_egger  = FALSE, use_mr_presso = FALSE,
+  use_mr_horse = FALSE, use_mr_grip = FALSE
+)
+
 \donttest{
 data("fi_49item")
 data("fried_frailty")
 input1 <- harmonize_mr_data(df = fi_49item)
 input2 <- harmonize_mr_data(df = fried_frailty)
-input1 <- harmonize_mr_data(df = fi_49item)
-input2 <- harmonize_mr_data(df = fried_frailty)
 
 outcome1 <- run_mr_analysis(
-  MR_input_data = input1,
-  outcome.form = NULL, # defaul is "Beta"
-  use_ivw = TRUE,
-  use_raps = TRUE,
-  use_median = TRUE,
-  use_egger = TRUE,
-  use_mr_presso = TRUE,
-  use_mr_horse = TRUE,
-  use_mr_grip  = TRUE,
+  MR_input_data     = input1,
+  outcome.form      = "Beta",
+  use_ivw           = TRUE,
+  use_raps          = TRUE,
+  use_median        = TRUE,
+  use_egger         = TRUE,
+  use_mr_presso     = TRUE,
+  use_mr_horse      = TRUE,
+  use_mr_grip       = TRUE,
   NbDistribution    = 1000,
   SignifThreshold   = 0.05,
-  save_all_in_one   = TRUE,
-  save_csv          = FALSE,
-  save_dir          = ".",
   mr_horse_n_iter   = 5000,
   mr_horse_n_burnin = 1000,
-  mr_grip_parameters = NULL,
-  combined_file = "fi_49item results.csv" # you can customize the output csv file name
-  )
+  mr_grip_parameters = NULL
+)
 
 outcome2 <- run_mr_analysis(
-  MR_input_data = input2,
-  outcome.form = "OR", # defaul is "Beta"
-  use_ivw = TRUE,
-  use_raps = TRUE,
-  use_median = TRUE,
-  use_egger = TRUE,
-  use_mr_presso = TRUE,
-  use_mr_horse = TRUE,
-  use_mr_grip  = TRUE,
+  MR_input_data     = input2,
+  outcome.form      = "OR",
+  use_ivw           = TRUE,
+  use_raps          = TRUE,
+  use_median        = TRUE,
+  use_egger         = TRUE,
+  use_mr_presso     = TRUE,
+  use_mr_horse      = TRUE,
+  use_mr_grip       = TRUE,
   NbDistribution    = 1000,
   SignifThreshold   = 0.05,
-  save_all_in_one   = TRUE,
-  save_csv          = FALSE,
-  save_dir          = ".",
   mr_horse_n_iter   = 5000,
   mr_horse_n_burnin = 1000,
-  mr_grip_parameters = NULL,
-  combined_file = "fried_frailty results.csv" # you can customize the output csv file name
+  mr_grip_parameters = NULL
 )
+
+# Save results using standard R functions (commented — writes to disk)
+# write.csv(outcome1, file.path(tempdir(), "outcome1.csv"), row.names = FALSE)
+# saveRDS(outcome1,   file.path(tempdir(), "outcome1.rds"))
 }
 }

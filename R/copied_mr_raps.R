@@ -161,11 +161,19 @@ mr_raps_simple <- function(b_exp, b_out, se_exp, se_out, diagnosis = FALSE) {
 
   if (diagnosis) {
     std.resid <- (b_out - b_exp * beta.hat) / sqrt(se_out^2 + beta.hat^2 * se_exp^2)
+    oldpar <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(oldpar), add = TRUE)
     graphics::par(mfrow = c(1, 2))
     stats::qqnorm(std.resid); graphics::abline(0, 1)
 
-    if (requireNamespace("nortest", quietly = TRUE)) print(nortest::ad.test(std.resid))
-    print(stats::shapiro.test(std.resid))
+    if (requireNamespace("nortest", quietly = TRUE)) {
+      ad <- nortest::ad.test(std.resid)
+      message("Anderson-Darling test: statistic = ", round(ad$statistic, 4),
+              ", p-value = ", round(ad$p.value, 4))
+    }
+    sw <- stats::shapiro.test(std.resid)
+    message("Shapiro-Wilk test: statistic = ", round(sw$statistic, 4),
+            ", p-value = ", round(sw$p.value, 4))
   }
 
   list(
@@ -267,10 +275,18 @@ mr_raps_overdispersed <- function(b_exp, b_out, se_exp, se_out,
 
   if (diagnosis) {
     std.resid <- (b_out - b_exp * beta.hat) / sqrt(tau2.hat + se_out^2 + beta.hat^2 * se_exp^2)
+    oldpar <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(oldpar), add = TRUE)
     graphics::par(mfrow = c(1, 2))
     stats::qqnorm(std.resid); graphics::abline(0, 1)
-    if (requireNamespace("nortest", quietly = TRUE)) print(nortest::ad.test(std.resid))
-    print(stats::shapiro.test(std.resid))
+    if (requireNamespace("nortest", quietly = TRUE)) {
+      ad <- nortest::ad.test(std.resid)
+      message("Anderson-Darling test: statistic = ", round(ad$statistic, 4),
+              ", p-value = ", round(ad$p.value, 4))
+    }
+    sw <- stats::shapiro.test(std.resid)
+    message("Shapiro-Wilk test: statistic = ", round(sw$statistic, 4),
+            ", p-value = ", round(sw$p.value, 4))
     out$std.resid <- std.resid
   }
 
@@ -438,10 +454,18 @@ mr_raps_overdispersed_robust <- function(b_exp, b_out, se_exp, se_out,
 
   if (diagnosis) {
     std.resid <- (b_out - b_exp * beta.hat) / sqrt(tau2.hat + se_out^2 + beta.hat^2 * se_exp^2)
+    oldpar <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(oldpar), add = TRUE)
     graphics::par(mfrow = c(1, 2))
     stats::qqnorm(std.resid); graphics::abline(0, 1)
-    if (requireNamespace("nortest", quietly = TRUE)) print(nortest::ad.test(std.resid))
-    print(stats::shapiro.test(std.resid))
+    if (requireNamespace("nortest", quietly = TRUE)) {
+      ad <- nortest::ad.test(std.resid)
+      message("Anderson-Darling test: statistic = ", round(ad$statistic, 4),
+              ", p-value = ", round(ad$p.value, 4))
+    }
+    sw <- stats::shapiro.test(std.resid)
+    message("Shapiro-Wilk test: statistic = ", round(sw$statistic, 4),
+            ", p-value = ", round(sw$p.value, 4))
     out$std.resid <- std.resid
   }
 

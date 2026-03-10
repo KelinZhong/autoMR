@@ -1,6 +1,12 @@
 # ==============================================================================
 # Global variables declaration for R CMD check
 # ==============================================================================
+
+#' @importFrom utils globalVariables
+#' @importFrom methods new setClass setValidity setGeneric setMethod
+#' @noRd
+.autoMR_imports <- function() NULL
+
 utils::globalVariables(c(
   "Outcome", "Exposure", "Instrument", "ALLELE0", "ALLELE1", "A1FREQ",
   "beta_exposure", "beta_outcome", "se_exposure", "se_outcome"
@@ -56,10 +62,6 @@ valid.output <- function(MR_input_data,
                          use_mr_grip  = TRUE,
                          NbDistribution = 1000,
                          SignifThreshold = 0.05,
-                         custom_label = NULL,
-                         return.result = TRUE,
-                         save_csv = FALSE,
-                         save_dir = ".",
                          mr_horse_n_iter = 5000,
                          mr_horse_n_burnin = 1000,
                          mr_grip_parameters = NULL) {
@@ -92,7 +94,7 @@ valid.output <- function(MR_input_data,
     if(use_ivw){
       tryCatch({
         ivw_obj <- MendelianRandomization::mr_ivw(MRInputObject)
-        result_row[["SNPs"]]      <- ivw_obj@SNPs
+        result_row[["Instruments"]] <- ivw_obj@SNPs
         result_row[["IVW_Beta"]]  <- ivw_obj@Estimate
         result_row[["IVW_Lower"]] <- ivw_obj@CILower
         result_row[["IVW_Upper"]] <- ivw_obj@CIUpper
@@ -102,10 +104,10 @@ valid.output <- function(MR_input_data,
         result_row[["IVW_Q_P"]]   <- heter[2]
         result_row[["Fstat"]]     <- ivw_obj@Fstat
       }, error = function(e){
-        for(nm in c("SNPs","IVW_Beta","IVW_Lower","IVW_Upper","IVW_P","IVW_Q","IVW_Q_P","Fstat")) result_row[[nm]] <- NA
+        for(nm in c("Instruments","IVW_Beta","IVW_Lower","IVW_Upper","IVW_P","IVW_Q","IVW_Q_P","Fstat")) result_row[[nm]] <- NA
       })
     } else {
-      for(nm in c("SNPs","IVW_Beta","IVW_Lower","IVW_Upper","IVW_P","IVW_Q","IVW_Q_P","Fstat")) result_row[[nm]] <- NA
+      for(nm in c("Instruments","IVW_Beta","IVW_Lower","IVW_Upper","IVW_P","IVW_Q","IVW_Q_P","Fstat")) result_row[[nm]] <- NA
     }
 
     # --- MR-RAPS ---
@@ -188,17 +190,17 @@ valid.output <- function(MR_input_data,
           orig <- nrow(clean_Exposure.i)
           if(!is.null(pr$`MR-PRESSO results`$`Outlier Test`) && nrow(pr$`MR-PRESSO results`$`Outlier Test`) > 0){
             nout <- nrow(pr$`MR-PRESSO results`$`Outlier Test`)
-            result_row[["Presso_SNPs"]]  <- orig - nout
-            result_row[["outlier_SNPs"]] <- paste(row.names(pr$`MR-PRESSO results`$`Outlier Test`), collapse = ",")
+            result_row[["Presso_Instruments"]]  <- orig - nout
+            result_row[["outlier_Instruments"]] <- paste(row.names(pr$`MR-PRESSO results`$`Outlier Test`), collapse = ",")
           } else {
-            result_row[["Presso_SNPs"]]  <- orig
-            result_row[["outlier_SNPs"]] <- NA
+            result_row[["Presso_Instruments"]]  <- orig
+            result_row[["outlier_Instruments"]] <- NA
           }
         }, error = function(e){
-          for(nm in c("Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_SNPs","outlier_SNPs")) result_row[[nm]] <- NA
+          for(nm in c("Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_Instruments","outlier_Instruments")) result_row[[nm]] <- NA
         })
       } else {
-        for(nm in c("Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_SNPs","outlier_SNPs")) result_row[[nm]] <- NA
+        for(nm in c("Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_Instruments","outlier_Instruments")) result_row[[nm]] <- NA
       }
 
       # --- Horse ---
@@ -246,7 +248,7 @@ valid.output <- function(MR_input_data,
                   "Egger_Beta","Egger_Lower","Egger_Upper","Egger_P_value",
                   "Egger_Q","Egger_Q_P","I_sq","Intercept_Est",
                   "Intercept_Lower","Intercept_Upper","Intercept_P",
-                  "Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_SNPs","outlier_SNPs",
+                  "Presso_Beta","Presso_lower","Presso_upper","Presso_p","Presso_Instruments","outlier_Instruments",
                   "Horse_Beta","Horse_Lower","Horse_Upper","Horse_P",
                   "Grip_Beta","Grip_Lower","Grip_Upper","Grip_P")) result_row[[nm]] <- NA
     }
@@ -277,354 +279,444 @@ valid.output <- function(MR_input_data,
     mr_res$Pleiotropy <- if(use_egger) as.integer(mr_res$Intercept_P < 0.01) else NA
   }
 
-  new_order <- c("Outcome","Exposure","SNPs","Presso_SNPs","outlier_SNPs","FLe10","SigQ","I2Le90","Pleiotropy",
-                 setdiff(colnames(mr_res), c("Outcome","Exposure","SNPs","Presso_SNPs","outlier_SNPs","FLe10","SigQ","I2Le90","Pleiotropy")))
+  new_order <- c("Outcome","Exposure","Instruments","Presso_Instruments","outlier_Instruments","FLe10","SigQ","I2Le90","Pleiotropy",
+                 setdiff(colnames(mr_res), c("Outcome","Exposure","Instruments","Presso_Instruments","outlier_Instruments","FLe10","SigQ","I2Le90","Pleiotropy")))
   mr_res <- mr_res[, new_order]
-
-  if(save_csv){
-    if(is.null(custom_label)) custom_label <- paste0(unique(MR_input_data$Outcome)[1], "_results.csv")
-    utils::write.csv(mr_res, file = file.path(save_dir, custom_label), row.names = FALSE)
-  }
 
   mr_res
 }
 
-#' Internal single-outcome scatter plot engine
+
+#' Internal single-exposure scatter plot data assembler
+#'
+#' Collects all data and pre-computed slope/p-value parameters needed to
+#' draw one scatter plot for a single outcome-exposure pair.  Returns a
+#' plain list — no graphics device is opened here.  Rendering is done
+#' later by \code{.draw_scatter_plot()}.
+#'
 #' @noRd
-#' @importFrom grDevices png dev.off dev.cur
 MRplots <- function(MR_input_data,
-                    d.title = NULL,
-                    d.subtitle = NULL,
+                    d.title        = NULL,
+                    d.subtitle     = NULL,
                     plot.xlab,
                     plot.ylab,
                     outcome_label,
-                    methods.plot = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
-                    NbDistribution_presso = 1000,
-                    SignifThreshold_presso = 0.05,
-                    mr_horse_n_iter = 5000,
-                    mr_horse_n_burnin = 1000,
-                    show.legend = TRUE,
-                    summary_df = NULL,
-                    effect_scale = "Beta",
-                    use_df_results = TRUE,
-                    save_plot = FALSE,
-                    save_dir = ".") {
+                    exposure_label,
+                    methods.plot   = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
+                    show.legend    = TRUE,
+                    summary_df,
+                    effect_scale   = "Beta") {
 
-  MR_input_data <- ensure_dummy_vars(MR_input_data)
+  method_colors <- c(IVW = "chartreuse3", RAPS = "turquoise3", Egger = "cornflowerblue",
+                     PRESSO = "red", Horse = "purple", GRIP = "darkorange")
+  method_ltys   <- c(IVW = 3, RAPS = 3, Egger = 4, PRESSO = 5, Horse = 6, GRIP = 2)
 
-  if (is.null(summary_df) || !use_df_results) {
-    summary_df <- valid.output(
-      MR_input_data, outcome.form = effect_scale, return.result = TRUE, save_csv = FALSE,
-      NbDistribution = NbDistribution_presso, SignifThreshold = SignifThreshold_presso,
-      mr_horse_n_iter = mr_horse_n_iter, mr_horse_n_burnin = mr_horse_n_burnin
-    )
+  dat    <- subset(MR_input_data, Exposure == exposure_label)
+  df_row <- subset(summary_df,   Outcome  == outcome_label & Exposure == exposure_label)
+
+  d.x    <- dat$beta_exposure
+  d.y    <- dat$beta_outcome
+  d.x.se <- dat$se_exposure
+  d.y.se <- dat$se_outcome
+
+  x_ext <- max(abs(d.x + d.x.se), na.rm = TRUE)
+  y_ext <- max(abs(d.y + d.y.se), abs(d.y - d.y.se), na.rm = TRUE)
+
+  # Pre-compute per-method slopes and p-values
+  slopes  <- list()
+  pvalues <- list()
+  for (m in methods.plot) {
+    slopes[[m]]  <- get_slope_from_summary(df_row, m, effect_scale)
+    pvalues[[m]] <- get_p_from_summary(df_row, m)
   }
 
-  colors <- list(IVW = "chartreuse3", RAPS = "turquoise3", Egger = "cornflowerblue",
-                 PRESSO = "red", Horse = "purple", GRIP = "darkorange")
-
-  for (ex in unique(MR_input_data$Exposure)) {
-    dat <- subset(MR_input_data, Exposure == ex)
-    df_row <- subset(summary_df, Outcome == outcome_label & Exposure == ex)
-    if (nrow(df_row) == 0) next
-
-    d.x <- dat$beta_exposure; d.y <- dat$beta_outcome
-    d.x.se <- dat$se_exposure; d.y.se <- dat$se_outcome
-
-    x_ext <- max(abs(d.x - d.x.se), abs(d.x + d.x.se), na.rm = TRUE)
-    y_ext <- max(abs(d.y - d.y.se), abs(d.y + d.y.se), na.rm = TRUE)
-    limx <- c(0, x_ext)
-    limy <- c(-y_ext, y_ext)
-
-    if (save_plot) {
-      fname <- file.path(save_dir, paste0("Scatter_", gsub("\\s+", "_", ex), "_", gsub("\\s+", "_", outcome_label), ".png"))
-      grDevices::png(fname, width = 8, height = 6, units = "in", res = 300)
-    }
-
-    graphics::plot(d.x, d.y, xlim = limx, ylim = limy,
-                   xlab = paste(plot.xlab, ex), ylab = paste(plot.ylab, outcome_label),
-                   main = d.title, pch = 16, bty = "L")
-    graphics::mtext(d.subtitle)
-    graphics::abline(h = 0, lty = 2); graphics::abline(v = 0, lty = 2)
-    graphics::arrows(d.x, d.y - d.y.se, d.x, d.y + d.y.se, length = 0, angle = 90, code = 3, col = "grey")
-    graphics::arrows(d.x - d.x.se, d.y, d.x + d.x.se, d.y, length = 0, angle = 90, code = 3, col = "grey")
-
-    legend_txt <- character(); legend_cols <- character(); legend_lty <- integer()
-
-    for (m_info in list(
-      list(name="IVW", lty=3), list(name="RAPS", lty=3), list(name="Egger", lty=4),
-      list(name="PRESSO", lty=5), list(name="Horse", lty=6), list(name="GRIP", lty=2)
-    )) {
-      if (m_info$name %in% methods.plot) {
-        b <- get_slope_from_summary(df_row, m_info$name, effect_scale)
-        p <- get_p_from_summary(df_row, m_info$name)
-
-        if (!is.na(b) && is.finite(b)) {
-          graphics::abline(a = 0, b = b, lty = m_info$lty, lwd = 2, col = colors[[m_info$name]])
-          legend_txt <- c(legend_txt, sprintf("%s: beta=%.3f, p=%.3g", m_info$name, b, p))
-        } else {
-          legend_txt <- c(legend_txt, sprintf("%s: failed", m_info$name))
-        }
-        legend_cols <- c(legend_cols, colors[[m_info$name]])
-        legend_lty <- c(legend_lty, m_info$lty)
-      }
-    }
-
-    if (show.legend && length(legend_txt) > 0) {
-      graphics::legend("topright", legend = legend_txt, col = legend_cols, lty = legend_lty, lwd = 2, bg = "white", cex = 0.9)
-    }
-
-    if (save_plot && grDevices::dev.cur() != 1) grDevices::dev.off()
-  }
+  list(
+    d.x          = d.x,
+    d.y          = d.y,
+    d.x.se       = d.x.se,
+    d.y.se       = d.y.se,
+    limx         = c(0, x_ext),
+    limy         = c(-y_ext, y_ext),
+    xlab         = paste(plot.xlab, exposure_label),
+    ylab         = paste(plot.ylab, outcome_label),
+    title        = if (!is.null(d.title)) d.title else
+      paste("Exposure:", exposure_label, "\nOutcome:", outcome_label),
+    subtitle     = d.subtitle,
+    methods      = methods.plot,
+    slopes       = slopes,
+    pvalues      = pvalues,
+    method_colors = method_colors,
+    method_ltys   = method_ltys,
+    show.legend  = show.legend
+  )
 }
 
+#' Internal scatter plot renderer
+#'
+#' Draws one scatter plot onto the currently active graphics device using
+#' the parameter list produced by \code{MRplots()}.  Must be called while
+#' a device is already open.
+#'
+#' @noRd
+.draw_scatter_plot <- function(p) {
+
+  graphics::plot(
+    p$d.x, p$d.y,
+    xlim = p$limx, ylim = p$limy,
+    xlab = p$xlab,
+    ylab = p$ylab,
+    main = p$title,
+    pch  = 16, bty = "L"
+  )
+  if (!is.null(p$subtitle)) graphics::mtext(p$subtitle)
+  graphics::abline(h = 0, lty = 2)
+  graphics::abline(v = 0, lty = 2)
+  graphics::arrows(p$d.x, p$d.y - p$d.y.se, p$d.x, p$d.y + p$d.y.se,
+                   length = 0, angle = 90, code = 3, col = "grey")
+  graphics::arrows(p$d.x - p$d.x.se, p$d.y, p$d.x + p$d.x.se, p$d.y,
+                   length = 0, angle = 90, code = 3, col = "grey")
+
+  legend_txt  <- character()
+  legend_cols <- character()
+  legend_ltys <- integer()
+
+  for (m in p$methods) {
+    b   <- p$slopes[[m]]
+    pv  <- p$pvalues[[m]]
+    col <- p$method_colors[[m]]
+    lty <- p$method_ltys[[m]]
+
+    if (!is.na(b) && is.finite(b)) {
+      graphics::abline(a = 0, b = b, lty = lty, lwd = 2, col = col)
+      legend_txt <- c(legend_txt, sprintf("%s: beta=%.3f, p=%.3g", m, b, pv))
+    } else {
+      legend_txt <- c(legend_txt, sprintf("%s: failed", m))
+    }
+    legend_cols <- c(legend_cols, col)
+    legend_ltys <- c(legend_ltys, lty)
+  }
+
+  if (p$show.legend && length(legend_txt) > 0) {
+    graphics::legend("topright", legend = legend_txt,
+                     col = legend_cols, lty = legend_ltys,
+                     lwd = 2, bg = "white", cex = 0.9)
+  }
+
+  invisible(NULL)
+}
 # ==============================================================================
 # Exported User-Facing Functions
 # ==============================================================================
 
 #' Run MR Analysis for Multiple Outcomes
 #'
-#' Performs causal inference analysis using multiple Mendelian Randomization methods
-#' across one or more outcomes and exposures.
+#' Performs causal inference analysis using multiple Mendelian Randomization
+#' (MR) methods across one or more outcomes and exposures. Returns a combined
+#' results data frame. To save the output, use standard R functions such as
+#' \code{write.csv()} or \code{saveRDS()} on the returned object.
 #'
-#' @param MR_input_data Harmonised MR input data frame. Must contain Outcome and Exposure columns.
-#' @param outcome.form Character vector indicating standard output scale for each outcome (e.g., "Beta", "OR", "HR"). Defaults to "Beta".
-#' @param use_ivw Logical; whether to use Inverse Variance Weighted method.
-#' @param use_raps Logical; whether to use Robust Adjusted Profile Score method.
-#' @param use_median Logical; whether to use Weighted Median method.
-#' @param use_egger Logical; whether to use MR-Egger regression.
-#' @param use_mr_presso Logical; whether to use MR-PRESSO method.
-#' @param use_mr_horse Logical; whether to use MR-Horse method.
-#' @param use_mr_grip Logical; whether to use MR-GRIP method.
-#' @param NbDistribution Integer; number of distributions for MR-PRESSO. Default is 1000.
-#' @param SignifThreshold Numeric; significance threshold for MR-PRESSO. Default is 0.05.
-#' @param save_all_in_one Logical; whether to save combined results of all outcomes into a single file.
-#' @param save_csv Logical; whether to save results as CSV files. Default is TRUE.
-#' @param combined_file Character string for the combined output filename. Default is "combined_results.csv".
-#' @param save_dir Directory to save output files. Default is current directory (".").
-#' @param mr_horse_n_iter Integer; number of iterations for MR-Horse. Default is 5000.
-#' @param mr_horse_n_burnin Integer; number of burn-in samples for MR-Horse. Default is 1000.
-#' @param mr_grip_parameters List; additional parameters for the MR-GRIP method.
-#' @return Combined results data frame.
+#' @param MR_input_data Harmonised MR input data frame. Must contain Outcome
+#'   and Exposure columns.
+#' @param outcome.form Character vector indicating the effect scale for each
+#'   outcome: \code{"Beta"}, \code{"OR"} (odds ratio), or \code{"HR"}
+#'   (hazard ratio). A single value is recycled across all outcomes.
+#'   Defaults to \code{"Beta"}.
+#' @param use_ivw Logical; whether to run the Inverse Variance Weighted
+#'   (IVW) method. Default is \code{TRUE}.
+#' @param use_raps Logical; whether to run the Robust Adjusted Profile Score
+#'   (MR-RAPS) method. Default is \code{TRUE}.
+#' @param use_median Logical; whether to run the Weighted Median method.
+#'   Default is \code{TRUE}.
+#' @param use_egger Logical; whether to run MR-Egger regression.
+#'   Default is \code{TRUE}.
+#' @param use_mr_presso Logical; whether to run the Mendelian Randomization
+#'   Pleiotropy RESidual Sum and Outlier (MR-PRESSO) method.
+#'   Default is \code{TRUE}.
+#' @param use_mr_horse Logical; whether to run the MR-Horse method.
+#'   Default is \code{TRUE}.
+#' @param use_mr_grip Logical; whether to run the Generalized Regression with
+#'   Instrument Pairs (MR-GRIP) method. Default is \code{TRUE}.
+#' @param NbDistribution Integer; number of simulated distributions for
+#'   MR-PRESSO. Default is \code{1000}.
+#' @param SignifThreshold Numeric; significance threshold for the MR-PRESSO
+#'   outlier test. Default is \code{0.05}.
+#' @param mr_horse_n_iter Integer; number of Markov chain Monte Carlo (MCMC)
+#'   iterations for MR-Horse. Default is \code{5000}.
+#' @param mr_horse_n_burnin Integer; number of MCMC burn-in samples for
+#'   MR-Horse. Default is \code{1000}.
+#' @param mr_grip_parameters List of additional parameters passed to MR-GRIP.
+#'   If \code{NULL}, default parameters are used.
+#'
+#' @return A data frame combining results across all outcomes and exposures.
+#'   Each row represents one outcome-exposure pair. Columns include estimates,
+#'   confidence intervals (CI), and p-values for each method, together with
+#'   diagnostic flags (e.g., F-statistic below 10, significant heterogeneity).
+#'   Use \code{write.csv()} or \code{saveRDS()} to save the returned object.
+#'
 #' @examples
+#' # Minimal toy example (fast, automatically tested)
+#' toy_data <- data.frame(
+#'   Instrument    = paste0("SNP", 1:5),
+#'   beta_exposure = c(0.10, 0.15, 0.12, 0.09, 0.11),
+#'   se_exposure   = c(0.02, 0.03, 0.02, 0.02, 0.02),
+#'   beta_outcome  = c(0.05, 0.08, 0.06, 0.04, 0.07),
+#'   se_outcome    = c(0.01, 0.02, 0.01, 0.01, 0.02),
+#'   Outcome       = "Outcome1",
+#'   Exposure      = "Exposure1"
+#' )
+#' res <- run_mr_analysis(
+#'   MR_input_data = toy_data,
+#'   use_ivw    = TRUE,  use_raps   = TRUE,  use_median = FALSE,
+#'   use_egger  = FALSE, use_mr_presso = FALSE,
+#'   use_mr_horse = FALSE, use_mr_grip = FALSE
+#' )
+#'
 #' \donttest{
 #' data("fi_49item")
 #' data("fried_frailty")
 #' input1 <- harmonize_mr_data(df = fi_49item)
 #' input2 <- harmonize_mr_data(df = fried_frailty)
-#' input1 <- harmonize_mr_data(df = fi_49item)
-#' input2 <- harmonize_mr_data(df = fried_frailty)
 #'
 #' outcome1 <- run_mr_analysis(
-#'   MR_input_data = input1,
-#'   outcome.form = NULL, # defaul is "Beta"
-#'   use_ivw = TRUE,
-#'   use_raps = TRUE,
-#'   use_median = TRUE,
-#'   use_egger = TRUE,
-#'   use_mr_presso = TRUE,
-#'   use_mr_horse = TRUE,
-#'   use_mr_grip  = TRUE,
+#'   MR_input_data     = input1,
+#'   outcome.form      = "Beta",
+#'   use_ivw           = TRUE,
+#'   use_raps          = TRUE,
+#'   use_median        = TRUE,
+#'   use_egger         = TRUE,
+#'   use_mr_presso     = TRUE,
+#'   use_mr_horse      = TRUE,
+#'   use_mr_grip       = TRUE,
 #'   NbDistribution    = 1000,
 #'   SignifThreshold   = 0.05,
-#'   save_all_in_one   = TRUE,
-#'   save_csv          = FALSE,
-#'   save_dir          = ".",
 #'   mr_horse_n_iter   = 5000,
 #'   mr_horse_n_burnin = 1000,
-#'   mr_grip_parameters = NULL,
-#'   combined_file = "fi_49item results.csv" # you can customize the output csv file name
-#'   )
+#'   mr_grip_parameters = NULL
+#' )
 #'
 #' outcome2 <- run_mr_analysis(
-#'   MR_input_data = input2,
-#'   outcome.form = "OR", # defaul is "Beta"
-#'   use_ivw = TRUE,
-#'   use_raps = TRUE,
-#'   use_median = TRUE,
-#'   use_egger = TRUE,
-#'   use_mr_presso = TRUE,
-#'   use_mr_horse = TRUE,
-#'   use_mr_grip  = TRUE,
+#'   MR_input_data     = input2,
+#'   outcome.form      = "OR",
+#'   use_ivw           = TRUE,
+#'   use_raps          = TRUE,
+#'   use_median        = TRUE,
+#'   use_egger         = TRUE,
+#'   use_mr_presso     = TRUE,
+#'   use_mr_horse      = TRUE,
+#'   use_mr_grip       = TRUE,
 #'   NbDistribution    = 1000,
 #'   SignifThreshold   = 0.05,
-#'   save_all_in_one   = TRUE,
-#'   save_csv          = FALSE,
-#'   save_dir          = ".",
 #'   mr_horse_n_iter   = 5000,
 #'   mr_horse_n_burnin = 1000,
-#'   mr_grip_parameters = NULL,
-#'   combined_file = "fried_frailty results.csv" # you can customize the output csv file name
+#'   mr_grip_parameters = NULL
 #' )
+#'
+#' # Save results using standard R functions (commented — writes to disk)
+#' # write.csv(outcome1, file.path(tempdir(), "outcome1.csv"), row.names = FALSE)
+#' # saveRDS(outcome1,   file.path(tempdir(), "outcome1.rds"))
 #' }
 #' @export
 run_mr_analysis <- function(MR_input_data,
-                            outcome.form = NULL,
-                            use_ivw = TRUE,
-                            use_raps = TRUE,
-                            use_median = TRUE,
-                            use_egger = TRUE,
-                            use_mr_presso = TRUE,
-                            use_mr_horse = TRUE,
-                            use_mr_grip  = TRUE,
-                            NbDistribution = 1000,
-                            SignifThreshold = 0.05,
-                            save_all_in_one = FALSE,
-                            save_csv = TRUE,
-                            combined_file = "combined_results.csv",
-                            save_dir = ".",
-                            mr_horse_n_iter = 5000,
+                            outcome.form      = NULL,
+                            use_ivw           = TRUE,
+                            use_raps          = TRUE,
+                            use_median        = TRUE,
+                            use_egger         = TRUE,
+                            use_mr_presso     = TRUE,
+                            use_mr_horse      = TRUE,
+                            use_mr_grip       = TRUE,
+                            NbDistribution    = 1000,
+                            SignifThreshold   = 0.05,
+                            mr_horse_n_iter   = 5000,
                             mr_horse_n_burnin = 1000,
                             mr_grip_parameters = NULL) {
 
   outcomes <- unique(MR_input_data$Outcome)
-  if(is.null(outcome.form)) outcome.form <- rep("Beta", length(outcomes))
-  if(length(outcome.form) == 1) outcome.form <- rep(outcome.form, length(outcomes))
+  if (is.null(outcome.form)) outcome.form <- rep("Beta", length(outcomes))
+  if (length(outcome.form) == 1) outcome.form <- rep(outcome.form, length(outcomes))
 
-  results_list <- list()
-  for(i in seq_along(outcomes)){
+  results_list <- vector("list", length(outcomes))
+  for (i in seq_along(outcomes)) {
     Outcome.i <- as.data.frame(MR_input_data[MR_input_data$Outcome == outcomes[i], ])
-    res <- valid.output(
-      MR_input_data = Outcome.i,
-      outcome.form = outcome.form[i],
-      use_ivw = use_ivw,
-      use_raps = use_raps,
-      use_median = use_median,
-      use_egger = use_egger,
-      use_mr_presso = use_mr_presso,
-      use_mr_horse = use_mr_horse,
-      use_mr_grip = use_mr_grip,
-      NbDistribution = NbDistribution,
-      SignifThreshold = SignifThreshold,
-      save_csv = save_csv,
-      save_dir = save_dir,
-      mr_horse_n_iter = mr_horse_n_iter,
+    results_list[[i]] <- valid.output(
+      MR_input_data     = Outcome.i,
+      outcome.form      = outcome.form[i],
+      use_ivw           = use_ivw,
+      use_raps          = use_raps,
+      use_median        = use_median,
+      use_egger         = use_egger,
+      use_mr_presso     = use_mr_presso,
+      use_mr_horse      = use_mr_horse,
+      use_mr_grip       = use_mr_grip,
+      NbDistribution    = NbDistribution,
+      SignifThreshold   = SignifThreshold,
+      mr_horse_n_iter   = mr_horse_n_iter,
       mr_horse_n_burnin = mr_horse_n_burnin,
       mr_grip_parameters = mr_grip_parameters
     )
-    results_list[[i]] <- res
   }
-  combined_results <- do.call(rbind, results_list)
 
-  if(save_all_in_one && save_csv){
-    utils::write.csv(combined_results, file = file.path(save_dir, combined_file), row.names = FALSE)
-  }
-  return(combined_results)
+  do.call(rbind, results_list)
 }
 
-#' Plot MR Scatter plots for Multiple Outcomes
+#' Plot MR Scatter Plots for Multiple Outcomes and Exposures
 #'
-#' Generates scatter plots with fitted lines for each MR method. Efficiently
-#' uses pre-calculated results if provided via summary_df.
+#' Generates one scatter plot per outcome-exposure pair using base R
+#' graphics, with a regression line overlaid for each requested
+#' Mendelian Randomization (MR) method. Plot parameters are stored in an
+#' \code{MRScatterPlots} S4 object and rendered on demand at export
+#' time, so no files are written to disk during this call.
 #'
-#' @param MR_input_data Harmonised MR input data frame. Must contain Outcome and Exposure columns.
-#' @param plot.xlab Character string; prefix for the X-axis label. Default is "Exposure".
-#' @param plot.ylab Character string; prefix for the Y-axis label. Default is "Outcome".
-#' @param methods.plot Character vector; methods to overlay on the plot. Default includes all supported methods.
-#' @param NbDistribution_presso Integer; distributions for on-the-fly MR-PRESSO calculation. Default 1000.
-#' @param SignifThreshold_presso Numeric; significance threshold for on-the-fly MR-PRESSO calculation. Default 0.05.
-#' @param mr_horse_n_iter Integer; iterations for on-the-fly MR-Horse calculation. Default 5000.
-#' @param mr_horse_n_burnin Integer; burn-in samples for on-the-fly MR-Horse calculation. Default 1000.
-#' @param show.legend Logical; whether to display the method legend. Default is TRUE.
-#' @param summary_df Data frame; optional pre-calculated summary results from run_mr_analysis().
-#' @param effect_scale Character string; scale of effect to match summary_df ("Beta", "OR", "HR"). Default "Beta".
-#' @param use_df_results Logical; if TRUE, uses results from summary_df instead of re-calculating. Default is TRUE.
-#' @param save_plot Logical; whether to save plots to disk. Default is FALSE.
-#' @param save_dir Directory to save plots. Default is current directory (".").
-#' @return Invisibly returns NULL.
+#' @param MR_input_data Harmonised MR input data frame. Must contain
+#'   \code{Outcome} and \code{Exposure} columns.
+#' @param plot.xlab Character string; prefix for the x-axis label.
+#'   Default is \code{"Exposure"}.
+#' @param plot.ylab Character string; prefix for the y-axis label.
+#'   Default is \code{"Outcome"}.
+#' @param methods.plot Character vector of MR methods to overlay as
+#'   regression lines. Supported values: \code{"IVW"}, \code{"RAPS"},
+#'   \code{"Egger"}, \code{"PRESSO"}, \code{"Horse"}, \code{"GRIP"}.
+#' @param NbDistribution_presso Integer; number of simulated distributions
+#'   for on-the-fly MR-PRESSO calculation. Default is \code{1000}.
+#' @param SignifThreshold_presso Numeric; significance threshold for
+#'   on-the-fly MR-PRESSO outlier test. Default is \code{0.05}.
+#' @param mr_horse_n_iter Integer; number of Markov chain Monte Carlo (MCMC)
+#'   iterations for on-the-fly MR-Horse. Default is \code{5000}.
+#' @param mr_horse_n_burnin Integer; number of MCMC burn-in samples for
+#'   on-the-fly MR-Horse. Default is \code{1000}.
+#' @param show.legend Logical; whether to annotate each plot with method
+#'   labels, beta estimates, and p-values. Default is \code{TRUE}.
+#' @param summary_df Optional data frame of pre-calculated results from
+#'   \code{run_mr_analysis()}. When supplied together with
+#'   \code{use_df_results = TRUE}, avoids re-running the analysis.
+#' @param effect_scale Character string matching the scale used in
+#'   \code{summary_df}: \code{"Beta"}, \code{"OR"}, or \code{"HR"}.
+#'   Default is \code{"Beta"}.
+#' @param use_df_results Logical; if \code{TRUE} and \code{summary_df} is
+#'   provided, method slopes are read from \code{summary_df} instead of
+#'   being re-calculated. Default is \code{TRUE}.
+#'
+#' @return An \code{MRScatterPlots} object containing one
+#'   \code{recordedplot} per outcome-exposure pair, together with outcome
+#'   and exposure metadata. Use \code{export_scatter_plots()} to write
+#'   plots to disk with optional filtering by outcome, exposure, or both.
+#'
 #' @examples
+#' # Minimal toy example (fast, automatically tested)
+#' toy_data <- data.frame(
+#'   Instrument    = paste0("SNP", 1:5),
+#'   beta_exposure = c(0.10, 0.15, 0.12, 0.09, 0.11),
+#'   se_exposure   = c(0.02, 0.03, 0.02, 0.02, 0.02),
+#'   beta_outcome  = c(0.05, 0.08, 0.06, 0.04, 0.07),
+#'   se_outcome    = c(0.01, 0.02, 0.01, 0.01, 0.02),
+#'   Outcome       = "Outcome1",
+#'   Exposure      = "Exposure1"
+#' )
+#' plots <- plot_mr_scatter(
+#'   MR_input_data  = toy_data,
+#'   methods.plot   = "IVW",
+#'   use_df_results = FALSE
+#' )
+#'
 #' \donttest{
 #' data("fi_49item")
-#' input1 <- harmonize_mr_data(df = fi_49item)
+#' input1  <- harmonize_mr_data(df = fi_49item)
 #' outcome1 <- run_mr_analysis(
 #'   MR_input_data = input1,
-#'   outcome.form = NULL, # defaul is "Beta"
-#'   use_ivw = TRUE,
-#'   use_raps = TRUE,
-#'   use_median = TRUE,
-#'   use_egger = TRUE,
-#'   use_mr_presso = TRUE,
-#'   use_mr_horse = TRUE,
-#'   use_mr_grip  = TRUE,
-#'   NbDistribution    = 1000,
-#'   SignifThreshold   = 0.05,
-#'   save_all_in_one   = TRUE,
-#'   save_csv          = FALSE,
-#'   save_dir          = ".",
-#'   mr_horse_n_iter   = 5000,
-#'   mr_horse_n_burnin = 1000,
-#'   mr_grip_parameters = NULL,
-#'   combined_file = "fi_49item results.csv" # you can customize the output csv file name
-#'   )
-#'
-#' plot_mr_scatter(
-#'   MR_input_data = input1,
-#'   plot.xlab = "Exposure",
-#'   plot.ylab = "Outcome",
-#'   methods.plot = c("IVW", "RAPS", "Egger", "PRESSO", "Horse", "GRIP"),
-#'   NbDistribution_presso = 1000,
-#'   SignifThreshold_presso = 0.05,
-#'   mr_horse_n_iter = 5000,
-#'   mr_horse_n_burnin = 1000,
-#'   show.legend = TRUE,
-#'   summary_df = outcome1, # avoid computing the MR results again if you already run run_mr_analysis()
-#'   effect_scale = "Beta",
-#'   use_df_results = TRUE,
-#'   save_plot = FALSE,
-#'   save_dir = "."
+#'   use_ivw = TRUE, use_raps = TRUE, use_median = TRUE,
+#'   use_egger = TRUE, use_mr_presso = TRUE,
+#'   use_mr_horse = TRUE, use_mr_grip = TRUE
 #' )
 #'
-#' plot_mr_scatter(
-#'   MR_input_data = input1,
-#'   plot.xlab = "Exposure",
-#'   plot.ylab = "Outcome",
-#'   methods.plot = c("IVW", "RAPS", "Egger", "PRESSO", "Horse", "GRIP"),
-#'   NbDistribution_presso = 1000,
-#'   SignifThreshold_presso = 0.05,
-#'   mr_horse_n_iter = 5000,
-#'   mr_horse_n_burnin = 1000,
-#'   show.legend = TRUE,
-#'   summary_df = NULL,     # you can also generate the plot without the results from run_mr_analysis()
-#'   effect_scale = "Beta",
-#'   use_df_results = FALSE,
-#'   save_plot = FALSE,
-#'   save_dir = "."
+#' # Pass pre-calculated results to avoid rerunning the analysis
+#' plots <- plot_mr_scatter(
+#'   MR_input_data  = input1,
+#'   summary_df     = outcome1,
+#'   use_df_results = TRUE
 #' )
+#'
+#' # Inspect the object; for fi_49item this prints:
+#' #   [1] fi_49item :: Zn
+#'
+#' # Retrieve the exact outcome/exposure labels stored in the object
+#' out_name <- plots@outcomes[1]   # "fi_49item"
+#' exp_name <- plots@exposures[1]  # "Zn"
+#'
+#' # Export all plots as PDF (commented — writes to disk)
+#' # export_scatter_plots(plots, save_dir = tempdir(), file_type = "pdf")
+#'
+#' # Export one outcome only
+#' # export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
+#'
+#' # Export one exposure only
+#' # export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
+#'
+#' # Export one specific pair
+#' # export_scatter_plots(plots, save_dir = tempdir(),
+#' #                      outcome = out_name, exposure = exp_name)
+#'
+#' # Export as PNG instead
+#' # export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
+#'
+#' # Save the whole plot object for later use
+#' # saveRDS(plots, file.path(tempdir(), "scatter_plots.rds"))
 #' }
+#' @importFrom graphics plot abline arrows legend mtext
 #' @export
 plot_mr_scatter <- function(MR_input_data,
-                            plot.xlab = "Exposure",
-                            plot.ylab = "Outcome",
-                            methods.plot = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
+                            plot.xlab             = "Exposure",
+                            plot.ylab             = "Outcome",
+                            methods.plot          = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
                             NbDistribution_presso = 1000,
                             SignifThreshold_presso = 0.05,
-                            mr_horse_n_iter = 5000,
-                            mr_horse_n_burnin = 1000,
-                            show.legend = TRUE,
-                            summary_df = NULL,
-                            effect_scale = "Beta",
-                            use_df_results = TRUE,
-                            save_plot = FALSE,
-                            save_dir = ".") {
-  for (out in unique(MR_input_data$Outcome)) {
-    sub_data <- subset(MR_input_data, Outcome == out)
-    MRplots(
-      MR_input_data = sub_data,
-      outcome_label = out,
-      plot.xlab = plot.xlab,
-      plot.ylab = plot.ylab,
-      methods.plot = methods.plot,
-      NbDistribution_presso = NbDistribution_presso,
-      SignifThreshold_presso = SignifThreshold_presso,
-      mr_horse_n_iter = mr_horse_n_iter,
-      mr_horse_n_burnin = mr_horse_n_burnin,
-      show.legend = show.legend,
-      summary_df = summary_df,
-      effect_scale = effect_scale,
-      use_df_results = use_df_results,
-      save_plot = save_plot,
-      save_dir = save_dir
+                            mr_horse_n_iter       = 5000,
+                            mr_horse_n_burnin     = 1000,
+                            show.legend           = TRUE,
+                            summary_df            = NULL,
+                            effect_scale          = "Beta",
+                            use_df_results        = TRUE) {
+
+  MR_input_data <- ensure_dummy_vars(MR_input_data)
+
+  # Compute summary results once if not supplied or not requested
+  if (is.null(summary_df) || !use_df_results) {
+    summary_df <- valid.output(
+      MR_input_data,
+      outcome.form   = effect_scale,
+      NbDistribution = NbDistribution_presso,
+      SignifThreshold = SignifThreshold_presso,
+      mr_horse_n_iter   = mr_horse_n_iter,
+      mr_horse_n_burnin = mr_horse_n_burnin
     )
   }
-  invisible(NULL)
+
+  plots_list <- list()
+  outcomes_vec  <- character()
+  exposures_vec <- character()
+
+  for (out in unique(MR_input_data$Outcome)) {
+    sub_data <- subset(MR_input_data, Outcome == out)
+    for (ex in unique(sub_data$Exposure)) {
+      key <- paste0(out, "::", ex)
+      plots_list[[key]] <- MRplots(
+        MR_input_data  = sub_data,
+        outcome_label  = out,
+        exposure_label = ex,
+        plot.xlab      = plot.xlab,
+        plot.ylab      = plot.ylab,
+        methods.plot   = methods.plot,
+        show.legend    = show.legend,
+        summary_df     = summary_df,
+        effect_scale   = effect_scale
+      )
+      outcomes_vec  <- c(outcomes_vec,  out)
+      exposures_vec <- c(exposures_vec, ex)
+    }
+  }
+
+  new_mr_scatter_plots(
+    plots     = plots_list,
+    outcomes  = outcomes_vec,
+    exposures = exposures_vec
+  )
 }

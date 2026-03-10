@@ -53,7 +53,6 @@ ensure_dummy_vars <- function(df) {
 #'
 #' @return A data frame formatted for MR analysis.
 #' @examples
-#' \donttest{
 #' data("fi_49item")
 #'
 #' input_test1 <- format_mr_input(
@@ -80,7 +79,6 @@ ensure_dummy_vars <- function(df) {
 #'   A1FREQ = fi_49item$A1FREQ_outcome
 #' )
 #' head(input_test2)
-#' }
 #' @export
 format_mr_input <- function(Instrument, beta_exposure, se_exposure, beta_outcome, se_outcome,
                             Outcome, Exposure,
@@ -116,10 +114,8 @@ format_mr_input <- function(Instrument, beta_exposure, se_exposure, beta_outcome
 #' @return A harmonized data frame with 'Instrument' and allele columns.
 #' @import dplyr
 #' @examples
-#' \donttest{
 #' input_test3 <- harmonize_mr_data(df = fi_49item)
 #' head(input_test3)
-#' }
 #' @export
 harmonize_mr_data <- function(df, Outcome = NULL, Exposure = NULL) {
 

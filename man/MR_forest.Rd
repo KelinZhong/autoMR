@@ -9,7 +9,7 @@ MR_forest(
   effect,
   save_plot = FALSE,
   file_type = "jpeg",
-  save_dir = ".",
+  save_dir = tempdir(),
   custom_xlim = NULL,
   dot_size = 3,
   axis_text_size = 10,
@@ -26,11 +26,15 @@ MR_forest(
 \item{effect}{Character string or vector indicating the effect scale
 ("Beta", "OR", or "HR").}
 
-\item{save_plot}{Logical; whether to save the generated plots to disk.}
+\item{save_plot}{Deprecated. Plots are no longer saved inside the function.
+Use \code{export_forest_plots()} on the returned object instead.
+Ignored with a warning if supplied as \code{TRUE}.}
 
-\item{file_type}{Character string specifying the file format (e.g., "jpeg", "png").}
+\item{file_type}{Deprecated. Passed to \code{export_forest_plots()} instead.
+Ignored with a warning if supplied.}
 
-\item{save_dir}{Character string specifying the export directory.}
+\item{save_dir}{Deprecated. Passed to \code{export_forest_plots()} instead.
+Ignored with a warning if supplied.}
 
 \item{custom_xlim}{Optional numeric vector of length 2 for x-axis limits.}
 
@@ -50,7 +54,10 @@ MR_forest(
 be clamped to a small positive value before log-transformation.}
 }
 \value{
-A list of ggplot objects, named by the Outcome-Exposure pair.
+An \code{MRForestPlots} object containing one \code{ggplot}
+  per outcome-exposure pair, with causal estimates compared across MR
+  methods. Use \code{export_forest_plots()} to write plots to disk
+  with optional filtering.
 }
 \description{
 Creates a forest plot comparing causal estimates across different MR
@@ -59,42 +66,52 @@ methods (e.g., IVW, RAPS, Egger).
 \examples{
 \donttest{
 data("fi_49item")
-input1 <- harmonize_mr_data(df = fi_49item)
+input1   <- harmonize_mr_data(df = fi_49item)
 outcome1 <- run_mr_analysis(
-  MR_input_data = input1,
-  outcome.form = NULL, # defaul is "Beta"
-  use_ivw = TRUE,
-  use_raps = TRUE,
-  use_median = TRUE,
-  use_egger = TRUE,
-  use_mr_presso = TRUE,
-  use_mr_horse = TRUE,
-  use_mr_grip  = TRUE,
+  MR_input_data     = input1,
+  outcome.form      = NULL,
+  use_ivw           = TRUE,
+  use_raps          = TRUE,
+  use_median        = TRUE,
+  use_egger         = TRUE,
+  use_mr_presso     = TRUE,
+  use_mr_horse      = TRUE,
+  use_mr_grip       = TRUE,
   NbDistribution    = 1000,
   SignifThreshold   = 0.05,
-  save_all_in_one   = TRUE,
-  save_csv          = FALSE,
-  save_dir          = ".",
   mr_horse_n_iter   = 5000,
   mr_horse_n_burnin = 1000,
-  mr_grip_parameters = NULL,
-  combined_file = "fi_49item results.csv" # you can customize the output csv file name
-  )
+  mr_grip_parameters = NULL
+)
 
-MR_forest(
-  summary_df = outcome1,
-  effect = "Beta",
-  save_plot = FALSE,
-  file_type = "jpeg",
-  save_dir = ".",
-  custom_xlim = NULL,
-  dot_size = 3,
-  axis_text_size = 10,
-  axis_title_size = 12,
-  pval_text_size = 3,
-  plot_width = 8,
-  plot_height = 6,
+mr_plots <- MR_forest(
+  summary_df        = outcome1,
+  effect            = "Beta",
+  custom_xlim       = NULL,
+  dot_size          = 3,
+  axis_text_size    = 10,
+  axis_title_size   = 12,
+  pval_text_size    = 3,
+  plot_width        = 8,
+  plot_height       = 6,
   clamp_nonpositive = FALSE
 )
+
+# Retrieve the exact outcome/exposure labels stored in the object
+out_name <- mr_plots@outcomes[1]   # "fi_49item"
+exp_name <- mr_plots@exposures[1]  # "Zn"
+
+# Export all method-level plots as PDF (commented — writes to disk)
+# export_forest_plots(mr_plots, save_dir = tempdir(), file_type = "pdf")
+
+# Export plots for one outcome only
+# export_forest_plots(mr_plots, save_dir = tempdir(), outcome = out_name)
+
+# Export plots for one exposure only
+# export_forest_plots(mr_plots, save_dir = tempdir(), exposure = exp_name)
+
+# Export one specific outcome-exposure pair
+# export_forest_plots(mr_plots, save_dir = tempdir(),
+#                     outcome = out_name, exposure = exp_name)
 }
 }

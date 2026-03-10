@@ -9,7 +9,7 @@ GWAS_forest(
   report_form,
   save_plot = FALSE,
   file_type = "jpeg",
-  save_dir = ".",
+  save_dir = tempdir(),
   xlim_custom = NULL,
   dot_size = 2,
   axis_text_size = 10,
@@ -27,14 +27,15 @@ Instrument, beta_exposure, se_exposure, beta_outcome, and se_outcome columns.}
 \item{report_form}{Character string or vector indicating the standard
 output scale for each outcome (e.g., "Beta", "OR", "HR"). Defaults to "Beta".}
 
-\item{save_plot}{Logical; whether to save the generated plots to disk.
-Default is FALSE.}
+\item{save_plot}{Deprecated. Plots are no longer saved inside the function.
+Use \code{export_forest_plots()} on the returned object instead.
+Ignored with a warning if supplied as \code{TRUE}.}
 
-\item{file_type}{Character string specifying the file extension for
-saving (e.g., "jpeg", "png", "pdf"). Default is "jpeg".}
+\item{file_type}{Deprecated. Passed to \code{export_forest_plots()} instead.
+Ignored with a warning if supplied.}
 
-\item{save_dir}{Character string specifying the directory path where
-plots should be exported. Default is the current directory (".").}
+\item{save_dir}{Deprecated. Passed to \code{export_forest_plots()} instead.
+Ignored with a warning if supplied.}
 
 \item{xlim_custom}{Optional numeric vector of length 2 providing custom
 limits for the x-axis. If NULL, limits are determined by the data.}
@@ -60,7 +61,10 @@ Default is 6.}
 (Beta/OR/HR and 95 percent CI) shown on the plot. Default is 3.}
 }
 \value{
-A list of ggplot objects, named by the Outcome-Exposure pair.
+A \code{GWASForestPlots} object containing one \code{ggplot}
+  per outcome-exposure pair, with instrument-level (SNP) causal estimates
+  and a pooled IVW estimate. Use \code{export_forest_plots()} to
+  write plots to disk with optional filtering.
 }
 \description{
 Creates a forest plot for each instrument (SNP) within the MR analysis,
@@ -71,20 +75,34 @@ including a pooled IVW estimate at the top for comparison.
 data("fi_49item")
 input1 <- harmonize_mr_data(df = fi_49item)
 
-GWAS_forest(
-  MR_input_data = input1,
-  report_form = "Beta",
-  save_plot = FALSE,
-  file_type = "jpeg",
-  save_dir = ".",
-  xlim_custom = NULL,
-  dot_size = 2,
-  axis_text_size = 10,
+gwas_plots <- GWAS_forest(
+  MR_input_data   = input1,
+  report_form     = "Beta",
+  xlim_custom     = NULL,
+  dot_size        = 2,
+  axis_text_size  = 10,
   axis_title_size = 12,
-  digits = 2,
-  plot_width = 8,
-  plot_height = 6,
+  digits          = 2,
+  plot_width      = 8,
+  plot_height     = 6,
   label_text_size = 3
 )
+
+# Retrieve the exact outcome/exposure labels stored in the object
+out_name <- gwas_plots@outcomes[1]   # "fi_49item"
+exp_name <- gwas_plots@exposures[1]  # "Zn"
+
+# Export all instrument-level plots as PDF (commented — writes to disk)
+# export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
+
+# Export plots for one outcome only
+# export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
+
+# Export plots for one exposure only
+# export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
+
+# Export one specific outcome-exposure pair
+# export_forest_plots(gwas_plots, save_dir = tempdir(),
+#                     outcome = out_name, exposure = exp_name)
 }
 }

@@ -63,12 +63,13 @@ get_method_col <- function(row, method, what, eff) {
 #'   Instrument, beta_exposure, se_exposure, beta_outcome, and se_outcome columns.
 #' @param report_form Character string or vector indicating the standard
 #'   output scale for each outcome (e.g., "Beta", "OR", "HR"). Defaults to "Beta".
-#' @param save_plot Logical; whether to save the generated plots to disk.
-#'   Default is FALSE.
-#' @param file_type Character string specifying the file extension for
-#'   saving (e.g., "jpeg", "png", "pdf"). Default is "jpeg".
-#' @param save_dir Character string specifying the directory path where
-#'   plots should be exported. Default is the current directory (".").
+#' @param save_plot Deprecated. Plots are no longer saved inside the function.
+#'   Use \code{export_forest_plots()} on the returned object instead.
+#'   Ignored with a warning if supplied as \code{TRUE}.
+#' @param file_type Deprecated. Passed to \code{export_forest_plots()} instead.
+#'   Ignored with a warning if supplied.
+#' @param save_dir Deprecated. Passed to \code{export_forest_plots()} instead.
+#'   Ignored with a warning if supplied.
 #' @param xlim_custom Optional numeric vector of length 2 providing custom
 #'   limits for the x-axis. If NULL, limits are determined by the data.
 #' @param dot_size Numeric value specifying the size of the points. Default is 2.
@@ -85,27 +86,44 @@ get_method_col <- function(row, method, what, eff) {
 #' @param label_text_size Numeric value specifying the size of estimate labels
 #'   (Beta/OR/HR and 95 percent CI) shown on the plot. Default is 3.
 #'
-#' @return A list of ggplot objects, named by the Outcome-Exposure pair.
+#' @return A \code{GWASForestPlots} object containing one \code{ggplot}
+#'   per outcome-exposure pair, with instrument-level (SNP) causal estimates
+#'   and a pooled IVW estimate. Use \code{export_forest_plots()} to
+#'   write plots to disk with optional filtering.
 #' @examples
 #' \donttest{
 #' data("fi_49item")
 #' input1 <- harmonize_mr_data(df = fi_49item)
 #'
-#' GWAS_forest(
-#'   MR_input_data = input1,
-#'   report_form = "Beta",
-#'   save_plot = FALSE,
-#'   file_type = "jpeg",
-#'   save_dir = ".",
-#'   xlim_custom = NULL,
-#'   dot_size = 2,
-#'   axis_text_size = 10,
+#' gwas_plots <- GWAS_forest(
+#'   MR_input_data   = input1,
+#'   report_form     = "Beta",
+#'   xlim_custom     = NULL,
+#'   dot_size        = 2,
+#'   axis_text_size  = 10,
 #'   axis_title_size = 12,
-#'   digits = 2,
-#'   plot_width = 8,
-#'   plot_height = 6,
+#'   digits          = 2,
+#'   plot_width      = 8,
+#'   plot_height     = 6,
 #'   label_text_size = 3
 #' )
+#'
+#' # Retrieve the exact outcome/exposure labels stored in the object
+#' out_name <- gwas_plots@outcomes[1]   # "fi_49item"
+#' exp_name <- gwas_plots@exposures[1]  # "Zn"
+#'
+#' # Export all instrument-level plots as PDF (commented — writes to disk)
+#' # export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
+#'
+#' # Export plots for one outcome only
+#' # export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
+#'
+#' # Export plots for one exposure only
+#' # export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
+#'
+#' # Export one specific outcome-exposure pair
+#' # export_forest_plots(gwas_plots, save_dir = tempdir(),
+#' #                     outcome = out_name, exposure = exp_name)
 #' }
 #' @import ggplot2
 #' @import dplyr
@@ -113,7 +131,7 @@ get_method_col <- function(row, method, what, eff) {
 #' @export
 GWAS_forest <- function(MR_input_data, report_form,
                         save_plot = FALSE, file_type = "jpeg",
-                        save_dir = ".", xlim_custom = NULL,
+                        save_dir = tempdir(), xlim_custom = NULL,
                         dot_size = 2,
                         axis_text_size = 10,
                         axis_title_size = 12,
@@ -121,6 +139,10 @@ GWAS_forest <- function(MR_input_data, report_form,
                         plot_width = 8,
                         plot_height = 6,
                         label_text_size = 3) {
+
+  if (isTRUE(save_plot))
+    warning("The 'save_plot' argument is deprecated. Use export_forest_plots() ",
+            "on the returned GWASForestPlots object instead.", call. = FALSE)
 
   df <- MR_input_data
 
@@ -130,7 +152,9 @@ GWAS_forest <- function(MR_input_data, report_form,
   outcome_exposure <- df %>% dplyr::distinct(Outcome, Exposure)
   outcome_exposure$effect <- sapply(outcome_exposure$Outcome, function(x) report_form[which(unique_outcomes == x)])
 
-  plots_list <- list()
+  plots_list    <- list()
+  outcomes_vec  <- character()
+  exposures_vec <- character()
   for (i in seq_len(nrow(outcome_exposure))) {
     current_outcome  <- outcome_exposure$Outcome[i]
     current_exposure <- outcome_exposure$Exposure[i]
@@ -182,14 +206,15 @@ GWAS_forest <- function(MR_input_data, report_form,
                      axis.text = ggplot2::element_text(size = axis_text_size), axis.title = ggplot2::element_text(size = axis_title_size),
                      plot.title = ggplot2::element_text(face = "bold", size = axis_title_size + 2))
 
-    if (save_plot) {
-      fname <- paste0("Instrument_forest_", gsub("\\s+", "_", current_exposure), "_", gsub("\\s+", "_", current_outcome), ".", file_type)
-      ggplot2::ggsave(filename = file.path(save_dir, fname), plot = p, device = file_type, width = plot_width, height = plot_height, dpi = 300)
-    }
-    plots_list[[i]] <- p
+    plots_list[[paste0(current_outcome, '::', current_exposure)]] <- p
+    outcomes_vec  <- c(outcomes_vec,  current_outcome)
+    exposures_vec <- c(exposures_vec, current_exposure)
   }
-  names(plots_list) <- paste(outcome_exposure$Outcome, outcome_exposure$Exposure, sep = " vs ")
-  return(plots_list)
+  new_gwas_forest_plots(
+    plots     = plots_list,
+    outcomes  = outcomes_vec,
+    exposures = exposures_vec
+  )
 }
 
 #' Generate Forest Plots across Multiple MR Methods
@@ -200,9 +225,13 @@ GWAS_forest <- function(MR_input_data, report_form,
 #' @param summary_df MR results data frame, typically the output from run_mr_analysis().
 #' @param effect Character string or vector indicating the effect scale
 #'   ("Beta", "OR", or "HR").
-#' @param save_plot Logical; whether to save the generated plots to disk.
-#' @param file_type Character string specifying the file format (e.g., "jpeg", "png").
-#' @param save_dir Character string specifying the export directory.
+#' @param save_plot Deprecated. Plots are no longer saved inside the function.
+#'   Use \code{export_forest_plots()} on the returned object instead.
+#'   Ignored with a warning if supplied as \code{TRUE}.
+#' @param file_type Deprecated. Passed to \code{export_forest_plots()} instead.
+#'   Ignored with a warning if supplied.
+#' @param save_dir Deprecated. Passed to \code{export_forest_plots()} instead.
+#'   Ignored with a warning if supplied.
 #' @param custom_xlim Optional numeric vector of length 2 for x-axis limits.
 #' @param dot_size Numeric value specifying the point size. Default is 3.
 #' @param axis_text_size Numeric value for axis font size.
@@ -213,54 +242,67 @@ GWAS_forest <- function(MR_input_data, report_form,
 #' @param clamp_nonpositive Logical; whether non-positive estimates should
 #'   be clamped to a small positive value before log-transformation.
 #'
-#' @return A list of ggplot objects, named by the Outcome-Exposure pair.
+#' @return An \code{MRForestPlots} object containing one \code{ggplot}
+#'   per outcome-exposure pair, with causal estimates compared across MR
+#'   methods. Use \code{export_forest_plots()} to write plots to disk
+#'   with optional filtering.
 #' @examples
 #' \donttest{
 #' data("fi_49item")
-#' input1 <- harmonize_mr_data(df = fi_49item)
+#' input1   <- harmonize_mr_data(df = fi_49item)
 #' outcome1 <- run_mr_analysis(
-#'   MR_input_data = input1,
-#'   outcome.form = NULL, # defaul is "Beta"
-#'   use_ivw = TRUE,
-#'   use_raps = TRUE,
-#'   use_median = TRUE,
-#'   use_egger = TRUE,
-#'   use_mr_presso = TRUE,
-#'   use_mr_horse = TRUE,
-#'   use_mr_grip  = TRUE,
+#'   MR_input_data     = input1,
+#'   outcome.form      = NULL,
+#'   use_ivw           = TRUE,
+#'   use_raps          = TRUE,
+#'   use_median        = TRUE,
+#'   use_egger         = TRUE,
+#'   use_mr_presso     = TRUE,
+#'   use_mr_horse      = TRUE,
+#'   use_mr_grip       = TRUE,
 #'   NbDistribution    = 1000,
 #'   SignifThreshold   = 0.05,
-#'   save_all_in_one   = TRUE,
-#'   save_csv          = FALSE,
-#'   save_dir          = ".",
 #'   mr_horse_n_iter   = 5000,
 #'   mr_horse_n_burnin = 1000,
-#'   mr_grip_parameters = NULL,
-#'   combined_file = "fi_49item results.csv" # you can customize the output csv file name
-#'   )
+#'   mr_grip_parameters = NULL
+#' )
 #'
-#' MR_forest(
-#'   summary_df = outcome1,
-#'   effect = "Beta",
-#'   save_plot = FALSE,
-#'   file_type = "jpeg",
-#'   save_dir = ".",
-#'   custom_xlim = NULL,
-#'   dot_size = 3,
-#'   axis_text_size = 10,
-#'   axis_title_size = 12,
-#'   pval_text_size = 3,
-#'   plot_width = 8,
-#'   plot_height = 6,
+#' mr_plots <- MR_forest(
+#'   summary_df        = outcome1,
+#'   effect            = "Beta",
+#'   custom_xlim       = NULL,
+#'   dot_size          = 3,
+#'   axis_text_size    = 10,
+#'   axis_title_size   = 12,
+#'   pval_text_size    = 3,
+#'   plot_width        = 8,
+#'   plot_height       = 6,
 #'   clamp_nonpositive = FALSE
 #' )
+#'
+#' # Retrieve the exact outcome/exposure labels stored in the object
+#' out_name <- mr_plots@outcomes[1]   # "fi_49item"
+#' exp_name <- mr_plots@exposures[1]  # "Zn"
+#'
+#' # Export all method-level plots as PDF (commented — writes to disk)
+#' # export_forest_plots(mr_plots, save_dir = tempdir(), file_type = "pdf")
+#'
+#' # Export plots for one outcome only
+#' # export_forest_plots(mr_plots, save_dir = tempdir(), outcome = out_name)
+#'
+#' # Export plots for one exposure only
+#' # export_forest_plots(mr_plots, save_dir = tempdir(), exposure = exp_name)
+#'
+#' # Export one specific outcome-exposure pair
+#' # export_forest_plots(mr_plots, save_dir = tempdir(),
+#' #                     outcome = out_name, exposure = exp_name)
 #' }
 #' @import ggplot2
 #' @import dplyr
 #' @importFrom tidyr drop_na
 #' @export
 MR_forest <- function(summary_df, effect,
-                      save_plot = FALSE, file_type = "jpeg", save_dir = ".",
+                      save_plot = FALSE, file_type = "jpeg", save_dir = tempdir(),
                       custom_xlim = NULL,
                       dot_size = 3,
                       axis_text_size = 10,
@@ -270,6 +312,10 @@ MR_forest <- function(summary_df, effect,
                       plot_height = 6,
                       clamp_nonpositive = FALSE) {
 
+  if (isTRUE(save_plot))
+    warning("The 'save_plot' argument is deprecated. Use export_forest_plots() ",
+            "on the returned MRForestPlots object instead.", call. = FALSE)
+
   df <- summary_df
 
   outcome_exposure <- df %>% dplyr::distinct(Outcome, Exposure)
@@ -278,8 +324,10 @@ MR_forest <- function(summary_df, effect,
   if(length(effect) == 1) effect <- rep(effect, length(unique_outcomes))
   outcome_exposure$effect <- sapply(outcome_exposure$Outcome, function(x) effect[which(unique_outcomes == x)])
 
-  methods <- c("IVW", "RAPS", "Med", "Egger", "PRESSO", "Horse", "GRIP")
-  plots_list <- list()
+  methods       <- c("IVW", "RAPS", "Med", "Egger", "PRESSO", "Horse", "GRIP")
+  plots_list    <- list()
+  outcomes_vec  <- character()
+  exposures_vec <- character()
 
   for(i in seq_len(nrow(outcome_exposure))) {
     curr_out <- outcome_exposure$Outcome[i]
@@ -330,12 +378,13 @@ MR_forest <- function(summary_df, effect,
                      plot.title = ggplot2::element_text(face = "bold", size = axis_title_size + 2)) +
       ggplot2::annotate("text", x = p_label_x, y = methods, label = ifelse(is.na(method_df$p), "", paste0("p=", formatC(method_df$p, format="f", digits=3))), hjust = 0, size = pval_text_size)
 
-    if(save_plot) {
-      fname <- paste0("Method_forest_", gsub("\\s+", "_", curr_exp), "_", gsub("\\s+", "_", curr_out), ".", file_type)
-      ggplot2::ggsave(filename = file.path(save_dir, fname), plot = p, device = file_type, width = plot_width, height = plot_height, dpi = 300)
-    }
-    plots_list[[i]] <- p
+    plots_list[[paste0(curr_out, '::', curr_exp)]] <- p
+    outcomes_vec  <- c(outcomes_vec,  curr_out)
+    exposures_vec <- c(exposures_vec, curr_exp)
   }
-  names(plots_list) <- paste(outcome_exposure$Outcome, outcome_exposure$Exposure, sep = " - ")
-  return(plots_list)
+  new_mr_forest_plots(
+    plots     = plots_list,
+    outcomes  = outcomes_vec,
+    exposures = exposures_vec
+  )
 }
