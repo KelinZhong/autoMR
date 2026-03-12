@@ -1,7 +1,7 @@
 Package: autoMR
 Type: Package
 Title: Automated Mendelian Randomization Workflows and Visualizations
-Version: 0.1.0
+Version: 0.1.1
 Authors@R:
     c(
       person("Kelin", "Zhong", email = "kelin.zhong@uconn.edu", role = c("aut", "cre")),
@@ -10,25 +10,25 @@ Authors@R:
 Description: Provides tools to summarize, analyze, and visualize results
     from Mendelian randomization studies using summarized genetic
     association data. The package includes functions for generating forest
-    plots and scatter plots at the level of single-nucleotide
-    polymorphisms (SNPs) and Mendelian randomization methods, and for
-    fitting multiple estimators in a unified workflow, including
-    inverse-variance weighted estimation, MR-Egger regression, the
-    weighted median estimator, robust adjusted profile score (RAPS),
-    Mendelian randomization pleiotropy residual sum and outlier
-    (MR-PRESSO), Mendelian randomization with the genotype recoding
-    invariance property (MR-GRIP), and MR-Horse. Related methods are
-    described in Burgess et al. (2013) <doi:10.1002/gepi.21758>, Bowden
-    et al. (2015) <doi:10.1093/ije/dyv080>, Bowden et al. (2016)
-    <doi:10.1002/gepi.21965>, Zhao et al. (2020)
-    <doi:10.1214/19-AOS1866>, Verbanck et al. (2018)
-    <doi:10.1038/s41588-018-0099-7>, Dudbridge et al. (2025)
+    plots and scatter plots at the single-nucleotide polymorphism
+    and Mendelian randomization method levels, and for fitting multiple
+    estimators in a unified workflow, including inverse-variance weighted
+    estimation, Mendelian randomization Egger regression,
+    the weighted median estimator, the robust adjusted
+    profile score, Mendelian randomization pleiotropy residual sum
+    and outlier, Mendelian randomization with the genotype
+    recoding invariance property, and a Bayesian horseshoe
+    method. Related methods are described by Burgess (2013)
+    <doi:10.1002/gepi.21758>, Bowden (2015) <doi:10.1093/ije/dyv080>,
+    Bowden (2016) <doi:10.1002/gepi.21965>, Zhao (2020)
+    <doi:10.1214/19-AOS1866>, Verbanck (2018)
+    <doi:10.1038/s41588-018-0099-7>, Dudbridge (2025)
     <doi:10.1371/journal.pgen.1011967>, and Grant and Burgess (2024)
     <doi:10.1016/j.ajhg.2023.12.002>. Related open-source software
-    includes TwoSampleMR <https://github.com/MRCIEU/TwoSampleMR>,
-    mr.raps <https://github.com/qingyuanzhao/mr.raps>, MR-PRESSO
-    <https://github.com/rondolab/MR-PRESSO>, and MR-Horse
-    <https://github.com/aj-grant/mrhorse>.
+    includes 'TwoSampleMR' <https://github.com/MRCIEU/TwoSampleMR>,
+    'mr.raps' <https://github.com/qingyuanzhao/mr.raps>,
+    'MR-PRESSO' <https://github.com/rondolab/MR-PRESSO>, and
+    'MR-Horse' <https://github.com/aj-grant/mrhorse>.
 Depends:
     R (>= 4.2)
 Imports:

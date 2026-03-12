@@ -74,32 +74,25 @@ Mendelian Randomization (MR) method. Plot parameters are stored in an
 time, so no files are written to disk during this call.
 }
 \examples{
-# Minimal toy example (fast, automatically tested)
-toy_data <- data.frame(
-  Instrument    = paste0("SNP", 1:5),
-  beta_exposure = c(0.10, 0.15, 0.12, 0.09, 0.11),
-  se_exposure   = c(0.02, 0.03, 0.02, 0.02, 0.02),
-  beta_outcome  = c(0.05, 0.08, 0.06, 0.04, 0.07),
-  se_outcome    = c(0.01, 0.02, 0.01, 0.01, 0.02),
-  Outcome       = "Outcome1",
-  Exposure      = "Exposure1"
-)
-plots <- plot_mr_scatter(
-  MR_input_data  = toy_data,
-  methods.plot   = "IVW",
-  use_df_results = FALSE
-)
-
-\donttest{
 data("fi_49item")
 input1  <- harmonize_mr_data(df = fi_49item)
 outcome1 <- run_mr_analysis(
-  MR_input_data = input1,
-  use_ivw = TRUE, use_raps = TRUE, use_median = TRUE,
-  use_egger = TRUE, use_mr_presso = TRUE,
-  use_mr_horse = TRUE, use_mr_grip = TRUE
+  MR_input_data     = input1,
+  outcome.form      = "Beta",
+  use_ivw           = TRUE,
+  use_raps          = FALSE,
+  use_median        = FALSE,
+  use_egger         = FALSE,
+  use_mr_presso     = FALSE,
+  use_mr_horse      = FALSE,
+  use_mr_grip       = FALSE,
+  NbDistribution    = 1000,
+  SignifThreshold   = 0.05,
+  mr_horse_n_iter   = 5000,
+  mr_horse_n_burnin = 1000,
+  mr_grip_parameters = NULL
 )
-
+\donttest{
 # Pass pre-calculated results to avoid rerunning the analysis
 plots <- plot_mr_scatter(
   MR_input_data  = input1,

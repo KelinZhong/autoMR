@@ -81,39 +81,18 @@ results data frame. To save the output, use standard R functions such as
 \code{write.csv()} or \code{saveRDS()} on the returned object.
 }
 \examples{
-# Minimal toy example (fast, automatically tested)
-toy_data <- data.frame(
-  Instrument    = paste0("SNP", 1:5),
-  beta_exposure = c(0.10, 0.15, 0.12, 0.09, 0.11),
-  se_exposure   = c(0.02, 0.03, 0.02, 0.02, 0.02),
-  beta_outcome  = c(0.05, 0.08, 0.06, 0.04, 0.07),
-  se_outcome    = c(0.01, 0.02, 0.01, 0.01, 0.02),
-  Outcome       = "Outcome1",
-  Exposure      = "Exposure1"
-)
-res <- run_mr_analysis(
-  MR_input_data = toy_data,
-  use_ivw    = TRUE,  use_raps   = TRUE,  use_median = FALSE,
-  use_egger  = FALSE, use_mr_presso = FALSE,
-  use_mr_horse = FALSE, use_mr_grip = FALSE
-)
-
-\donttest{
 data("fi_49item")
-data("fried_frailty")
 input1 <- harmonize_mr_data(df = fi_49item)
-input2 <- harmonize_mr_data(df = fried_frailty)
-
 outcome1 <- run_mr_analysis(
   MR_input_data     = input1,
   outcome.form      = "Beta",
   use_ivw           = TRUE,
-  use_raps          = TRUE,
-  use_median        = TRUE,
-  use_egger         = TRUE,
-  use_mr_presso     = TRUE,
-  use_mr_horse      = TRUE,
-  use_mr_grip       = TRUE,
+  use_raps          = FALSE,
+  use_median        = FALSE,
+  use_egger         = FALSE,
+  use_mr_presso     = FALSE,
+  use_mr_horse      = FALSE,
+  use_mr_grip       = FALSE,
   NbDistribution    = 1000,
   SignifThreshold   = 0.05,
   mr_horse_n_iter   = 5000,
@@ -121,6 +100,9 @@ outcome1 <- run_mr_analysis(
   mr_grip_parameters = NULL
 )
 
+\donttest{
+data("fried_frailty")
+input2 <- harmonize_mr_data(df = fried_frailty)
 outcome2 <- run_mr_analysis(
   MR_input_data     = input2,
   outcome.form      = "OR",
