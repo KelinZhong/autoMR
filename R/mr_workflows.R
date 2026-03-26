@@ -493,9 +493,6 @@ MRplots <- function(MR_input_data,
 #'   mr_grip_parameters = NULL
 #' )
 #'
-#' # Save results using standard R functions (commented — writes to disk)
-#' # write.csv(outcome1, file.path(tempdir(), "outcome1.csv"), row.names = FALSE)
-#' # saveRDS(outcome1,   file.path(tempdir(), "outcome1.rds"))
 #' }
 #' @export
 run_mr_analysis <- function(MR_input_data,
@@ -618,23 +615,20 @@ run_mr_analysis <- function(MR_input_data,
 #' exp_name <- plots@exposures[1]  # "Zn"
 #'
 #' # Export all plots as PDF (commented — writes to disk)
-#' # export_scatter_plots(plots, save_dir = tempdir(), file_type = "pdf")
+#' export_scatter_plots(plots, save_dir = tempdir(), file_type = "pdf")
 #'
 #' # Export one outcome only
-#' # export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
+#' export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
 #'
 #' # Export one exposure only
-#' # export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
+#' export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
 #'
 #' # Export one specific pair
-#' # export_scatter_plots(plots, save_dir = tempdir(),
-#' #                      outcome = out_name, exposure = exp_name)
+#' # export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 #'
 #' # Export as PNG instead
-#' # export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
+#' export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
 #'
-#' # Save the whole plot object for later use
-#' # saveRDS(plots, file.path(tempdir(), "scatter_plots.rds"))
 #' }
 #' @importFrom graphics plot abline arrows legend mtext
 #' @export

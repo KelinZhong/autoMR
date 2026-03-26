@@ -113,17 +113,16 @@ get_method_col <- function(row, method, what, eff) {
 #' exp_name <- gwas_plots@exposures[1]  # "Zn"
 #'
 #' # Export all instrument-level plots as PDF (commented — writes to disk)
-#' # export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
+#' export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
 #'
 #' # Export plots for one outcome only
-#' # export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
+#' export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
 #'
 #' # Export plots for one exposure only
-#' # export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
+#' export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
 #'
 #' # Export one specific outcome-exposure pair
-#' # export_forest_plots(gwas_plots, save_dir = tempdir(),
-#' #                     outcome = out_name, exposure = exp_name)
+#' export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 #' }
 #' @import ggplot2
 #' @import dplyr
@@ -285,17 +284,16 @@ GWAS_forest <- function(MR_input_data, report_form,
 #' exp_name <- mr_plots@exposures[1]  # "Zn"
 #'
 #' # Export all method-level plots as PDF (commented — writes to disk)
-#' # export_forest_plots(mr_plots, save_dir = tempdir(), file_type = "pdf")
+#' export_forest_plots(mr_plots, save_dir = tempdir(), file_type = "pdf")
 #'
 #' # Export plots for one outcome only
-#' # export_forest_plots(mr_plots, save_dir = tempdir(), outcome = out_name)
+#' export_forest_plots(mr_plots, save_dir = tempdir(), outcome = out_name)
 #'
 #' # Export plots for one exposure only
-#' # export_forest_plots(mr_plots, save_dir = tempdir(), exposure = exp_name)
+#' export_forest_plots(mr_plots, save_dir = tempdir(), exposure = exp_name)
 #'
 #' # Export one specific outcome-exposure pair
-#' # export_forest_plots(mr_plots, save_dir = tempdir(),
-#' #                     outcome = out_name, exposure = exp_name)
+#' export_forest_plots(mr_plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 #' }
 #' @import ggplot2
 #' @import dplyr

@@ -120,8 +120,5 @@ outcome2 <- run_mr_analysis(
   mr_grip_parameters = NULL
 )
 
-# Save results using standard R functions (commented — writes to disk)
-# write.csv(outcome1, file.path(tempdir(), "outcome1.csv"), row.names = FALSE)
-# saveRDS(outcome1,   file.path(tempdir(), "outcome1.rds"))
 }
 }

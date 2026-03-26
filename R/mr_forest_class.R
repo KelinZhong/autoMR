@@ -182,17 +182,16 @@ new_mr_forest_plots <- function(plots, outcomes, exposures) {
 #' mr_exp   <- mr_plots@exposures[1]    # "Zn"
 #'
 #' # Export all instrument-level plots as PDF (commented — writes to disk)
-#' # export_forest_plots(gwas_plots, save_dir = tempdir())
+#' export_forest_plots(gwas_plots, save_dir = tempdir())
 #'
 #' # Export one outcome only
-#' # export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = gwas_out)
+#' export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = gwas_out)
 #'
 #' # Export one exposure only
-#' # export_forest_plots(mr_plots, save_dir = tempdir(), exposure = mr_exp)
+#' export_forest_plots(mr_plots, save_dir = tempdir(), exposure = mr_exp)
 #'
 #' # Export one specific pair
-#' # export_forest_plots(mr_plots, save_dir = tempdir(),
-#' #                     outcome = mr_out, exposure = mr_exp)
+#' export_forest_plots(mr_plots, save_dir = tempdir(), outcome = mr_out, exposure = mr_exp)
 #' }
 #' @importFrom methods setGeneric setMethod
 #' @importFrom ggplot2 ggsave

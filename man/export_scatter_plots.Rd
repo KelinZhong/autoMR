@@ -89,16 +89,15 @@ out_name <- plots@outcomes[1]   # "fi_49item"
 exp_name <- plots@exposures[1]  # "Zn"
 
 # Export all plots to tempdir() (commented — writes to disk)
-# export_scatter_plots(plots, save_dir = tempdir())
+export_scatter_plots(plots, save_dir = tempdir())
 
 # Export one outcome only
-# export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
+export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
 
 # Export one exposure only
-# export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
+export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
 
 # Export one specific pair
-# export_scatter_plots(plots, save_dir = tempdir(),
-#                      outcome = out_name, exposure = exp_name)
+export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 }
 }

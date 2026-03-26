@@ -93,16 +93,15 @@ out_name <- gwas_plots@outcomes[1]   # "fi_49item"
 exp_name <- gwas_plots@exposures[1]  # "Zn"
 
 # Export all instrument-level plots as PDF (commented — writes to disk)
-# export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
+export_forest_plots(gwas_plots, save_dir = tempdir(), file_type = "pdf")
 
 # Export plots for one outcome only
-# export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
+export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name)
 
 # Export plots for one exposure only
-# export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
+export_forest_plots(gwas_plots, save_dir = tempdir(), exposure = exp_name)
 
 # Export one specific outcome-exposure pair
-# export_forest_plots(gwas_plots, save_dir = tempdir(),
-#                     outcome = out_name, exposure = exp_name)
+export_forest_plots(gwas_plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 }
 }

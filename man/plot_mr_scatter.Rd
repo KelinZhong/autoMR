@@ -108,22 +108,19 @@ out_name <- plots@outcomes[1]   # "fi_49item"
 exp_name <- plots@exposures[1]  # "Zn"
 
 # Export all plots as PDF (commented — writes to disk)
-# export_scatter_plots(plots, save_dir = tempdir(), file_type = "pdf")
+export_scatter_plots(plots, save_dir = tempdir(), file_type = "pdf")
 
 # Export one outcome only
-# export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
+export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name)
 
 # Export one exposure only
-# export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
+export_scatter_plots(plots, save_dir = tempdir(), exposure = exp_name)
 
 # Export one specific pair
-# export_scatter_plots(plots, save_dir = tempdir(),
-#                      outcome = out_name, exposure = exp_name)
+# export_scatter_plots(plots, save_dir = tempdir(), outcome = out_name, exposure = exp_name)
 
 # Export as PNG instead
-# export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
+export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
 
-# Save the whole plot object for later use
-# saveRDS(plots, file.path(tempdir(), "scatter_plots.rds"))
 }
 }
