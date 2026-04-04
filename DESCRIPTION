@@ -1,12 +1,13 @@
 Package: autoMR
 Type: Package
 Title: Automated Mendelian Randomization Workflows and Visualizations
-Version: 0.1.1
+Version: 1.0.0
 Authors@R:
     c(
-      person("Kelin", "Zhong", email = "kelin.zhong@uconn.edu", role = c("aut", "cre")),
+      person("Kelin", "Zhong", email = "kelinzhonguconn@gmail.com", role = c("aut", "cre")),
       person("Chia-Ling", "Kuo", email = "kuo@uchc.edu", role = "aut")
     )
+Maintainer: Kelin Zhong <kelinzhonguconn@gmail.com>
 Description: Provides tools to summarize, analyze, and visualize results
     from Mendelian randomization studies using summarized genetic
     association data. The package includes functions for generating forest
