@@ -1,7 +1,7 @@
 Package: autoMR
 Type: Package
 Title: Automated Mendelian Randomization Workflows and Visualizations
-Version: 1.1.0
+Version: 1.1.1
 Authors@R:
     c(
       person("Kelin", "Zhong", email = "kelinzhonguconn@gmail.com", role = c("aut", "cre")),
