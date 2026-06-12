@@ -23,7 +23,7 @@ utils::globalVariables(c(
   "temp_beta_exposure",
 
   # ---- MR-PRESSO / IVW helpers ----
-  "Weights", "mod_noOutliers",
+  "Weights",
 
   # ---- JAGS / MR-Horse model symbols (used inside model functions) ----
   "N", "K", "Tx", "R",

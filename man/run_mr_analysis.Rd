@@ -64,8 +64,7 @@ iterations for MR-Horse. Default is \code{5000}.}
 \item{mr_horse_n_burnin}{Integer; number of MCMC burn-in samples for
 MR-Horse. Default is \code{1000}.}
 
-\item{mr_grip_parameters}{List of additional parameters passed to MR-GRIP.
-If \code{NULL}, default parameters are used.}
+\item{mr_grip_parameters}{Accepted for API compatibility; not used by MR-GRIP.}
 }
 \value{
 A data frame combining results across all outcomes and exposures.

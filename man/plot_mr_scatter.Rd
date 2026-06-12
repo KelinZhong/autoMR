@@ -8,7 +8,7 @@ plot_mr_scatter(
   MR_input_data,
   plot.xlab = "Exposure",
   plot.ylab = "Outcome",
-  methods.plot = c("IVW", "RAPS", "Egger", "PRESSO", "Horse", "GRIP"),
+  methods.plot = c("IVW", "RAPS", "Egger", "PRESSO", "Horse"),
   NbDistribution_presso = 1000,
   SignifThreshold_presso = 0.05,
   mr_horse_n_iter = 5000,
@@ -18,7 +18,8 @@ plot_mr_scatter(
   effect_scale = "Beta",
   use_df_results = TRUE,
   custom_xlim = NULL,
-  custom_ylim = NULL
+  custom_ylim = NULL,
+  symmetric_ylim = TRUE
 )
 }
 \arguments{
@@ -71,6 +72,12 @@ the analysis.}
 
 \item{custom_ylim}{Optional numeric vector of length 2 for y-axis limits.
 If \code{NULL}, limits are determined from the data.}
+
+\item{symmetric_ylim}{Logical; if \code{TRUE} (the default), the y-axis
+limits are forced to be symmetric around zero (the null on the beta /
+log scale) for every effect scale. If \code{FALSE}, Beta outcomes remain
+symmetric while OR/HR outcomes use the data range with 10\% padding.
+Ignored when \code{custom_ylim} is supplied.}
 }
 \value{
 An \code{MRScatterPlots} object containing one plot parameter list

@@ -90,8 +90,29 @@ valid.output <- function(MR_input_data,
     )
 
     result_row <- list()
-    result_row[["Outcome"]]  <- unique(MR_input_data$Outcome)[1]
+    result_row[["Outcome"]]  <- unique(clean_Exposure.i$Outcome)[1]
     result_row[["Exposure"]] <- EXP[i]
+
+    # Pre-seed every analysis column with NA so that the column set is
+    # identical for every exposure regardless of which methods run or fail.
+    # The success branches below overwrite these on success. This is required
+    # because assignments made inside tryCatch() error handlers occur in the
+    # handler's own environment and do NOT modify result_row in this scope;
+    # without pre-seeding, a method that errors for some (but not all)
+    # exposures would yield rows with mismatched columns and break
+    # do.call(rbind, results_list).
+    numeric_result_cols <- c(
+      "Instruments","IVW","IVW_Lower","IVW_Upper","IVW_P","IVW_Q","IVW_Q_P","Fstat",
+      "RAPS","RAPS_Lower","RAPS_Upper","RAPS_P",
+      "Med","Med_Lower","Med_Upper","Med_P",
+      "Egger","Egger_Lower","Egger_Upper","Egger_P_value","Egger_Q","Egger_Q_P","I_sq",
+      "Intercept_Est","Intercept_Lower","Intercept_Upper","Intercept_P",
+      "Presso","Presso_lower","Presso_upper","Presso_p","Presso_Instruments",
+      "Horse","Horse_Lower","Horse_Upper","Horse_P",
+      "Grip","Grip_Lower","Grip_Upper","Grip_P","Grip_Pleiotropy","Grip_Pleiotropy_P"
+    )
+    for (nm in numeric_result_cols) result_row[[nm]] <- NA_real_
+    result_row[["outlier_Instruments"]] <- NA_character_
 
     # --- IVW ---
     if(use_ivw){
@@ -182,19 +203,30 @@ valid.output <- function(MR_input_data,
             OUTLIERtest = TRUE, DISTORTIONtest = TRUE,
             NbDistribution = NbDistribution, SignifThreshold = SignifThreshold
           )
-          b  <- pr$`Main MR results`[1,3]
-          se <- pr$`Main MR results`[1,4]
-          p  <- pr$`Main MR results`[1,6]
-          result_row[["Presso"]]  <- b
+
+          # Use outlier-corrected estimate when available; fall back to Raw otherwise
+          mr_results <- pr$`Main MR results`
+          corrected_row <- mr_results[mr_results[["MR Analysis"]] == "Outlier-corrected", , drop = FALSE]
+          raw_row       <- mr_results[mr_results[["MR Analysis"]] == "Raw",               , drop = FALSE]
+          use_row <- if(nrow(corrected_row) > 0) corrected_row else raw_row
+
+          b  <- use_row[1, "Causal Estimate"]
+          se <- use_row[1, "Sd"]
+          p  <- use_row[1, "P-value"]
+          result_row[["Presso"]]       <- b
           result_row[["Presso_lower"]] <- b - 1.96*se
           result_row[["Presso_upper"]] <- b + 1.96*se
           result_row[["Presso_p"]]     <- p
 
-          orig <- nrow(clean_Exposure.i)
-          if(!is.null(pr$`MR-PRESSO results`$`Outlier Test`) && nrow(pr$`MR-PRESSO results`$`Outlier Test`) > 0){
-            nout <- nrow(pr$`MR-PRESSO results`$`Outlier Test`)
-            result_row[["Presso_Instruments"]]  <- orig - nout
-            result_row[["outlier_Instruments"]] <- paste(row.names(pr$`MR-PRESSO results`$`Outlier Test`), collapse = ",")
+          orig         <- nrow(clean_Exposure.i)
+          outlier_test <- pr$`MR-PRESSO results`$`Outlier Test`
+          if(!is.null(outlier_test) && nrow(outlier_test) > 0){
+            # Identify SNPs flagged as significant outliers
+            sig_outliers <- which(outlier_test$Pvalue <= SignifThreshold)
+            result_row[["Presso_Instruments"]]  <- orig - length(sig_outliers)
+            result_row[["outlier_Instruments"]] <- if(length(sig_outliers) > 0)
+              paste(clean_Exposure.i$Instrument[sig_outliers], collapse = ",")
+            else NA
           } else {
             result_row[["Presso_Instruments"]]  <- orig
             result_row[["outlier_Instruments"]] <- NA
@@ -229,21 +261,30 @@ valid.output <- function(MR_input_data,
       # --- GRIP ---
       if(use_mr_grip){
         tryCatch({
-          params <- if(is.null(mr_grip_parameters)) default_parameters_mr_grip() else mr_grip_parameters
           gr <- mr_grip(
             b_exp = exposure_beta, b_out = outcome_beta,
             se_exp = exposure_se,  se_out = outcome_se,
-            parameters = params
+            parameters = mr_grip_parameters
           )
-          result_row[["Grip"]]  <- as.numeric(gr$b)
-          result_row[["Grip_Lower"]] <- as.numeric(gr$b - 1.96*gr$se)
-          result_row[["Grip_Upper"]] <- as.numeric(gr$b + 1.96*gr$se)
-          result_row[["Grip_P"]]     <- as.numeric(gr$pval)
+          result_row[["Grip"]]              <- as.numeric(gr$b)
+          result_row[["Grip_Lower"]]        <- as.numeric(gr$b - 1.96*gr$se)
+          result_row[["Grip_Upper"]]        <- as.numeric(gr$b + 1.96*gr$se)
+          result_row[["Grip_P"]]            <- as.numeric(gr$pval)
+          # Pleiotropy diagnostic: b_i is the intercept from GRIP's transformed
+          # regression (b_out*b_exp ~ b_exp^2). It captures the average pleiotropic
+          # contribution weighted by instrument strength. A significant Grip_Pleiotropy_P
+          # indicates directional pleiotropy, analogous in spirit to the Egger intercept
+          # test but not on the same scale — it is a diagnostic only and is not shown
+          # on scatter plots.
+          result_row[["Grip_Pleiotropy"]]   <- as.numeric(gr$b_i)
+          result_row[["Grip_Pleiotropy_P"]] <- as.numeric(gr$pval_i)
         }, error = function(e){
-          for(nm in c("Grip","Grip_Lower","Grip_Upper","Grip_P")) result_row[[nm]] <- NA
+          for(nm in c("Grip","Grip_Lower","Grip_Upper","Grip_P",
+                      "Grip_Pleiotropy","Grip_Pleiotropy_P")) result_row[[nm]] <- NA
         })
       } else {
-        for(nm in c("Grip","Grip_Lower","Grip_Upper","Grip_P")) result_row[[nm]] <- NA
+        for(nm in c("Grip","Grip_Lower","Grip_Upper","Grip_P",
+                    "Grip_Pleiotropy","Grip_Pleiotropy_P")) result_row[[nm]] <- NA
       }
 
     } else {
@@ -253,7 +294,8 @@ valid.output <- function(MR_input_data,
                   "Intercept_Lower","Intercept_Upper","Intercept_P",
                   "Presso","Presso_lower","Presso_upper","Presso_p","Presso_Instruments","outlier_Instruments",
                   "Horse","Horse_Lower","Horse_Upper","Horse_P",
-                  "Grip","Grip_Lower","Grip_Upper","Grip_P")) result_row[[nm]] <- NA
+                  "Grip","Grip_Lower","Grip_Upper","Grip_P",
+                  "Grip_Pleiotropy","Grip_Pleiotropy_P")) result_row[[nm]] <- NA
     }
 
     results_list[[i]] <- as.data.frame(result_row, stringsAsFactors = FALSE)
@@ -275,7 +317,9 @@ valid.output <- function(MR_input_data,
   new_order <- c("Outcome","Exposure","Instruments","Scale",
                  "Presso_Instruments","outlier_Instruments","FLe10","SigQ","I2Le90","Pleiotropy",
                  setdiff(colnames(mr_res), c("Outcome","Exposure","Instruments","Scale",
-                                             "Presso_Instruments","outlier_Instruments","FLe10","SigQ","I2Le90","Pleiotropy")))
+                                             "Presso_Instruments","outlier_Instruments","FLe10","SigQ","I2Le90","Pleiotropy",
+                                             "Grip_Pleiotropy","Grip_Pleiotropy_P")),
+                 intersect(c("Grip_Pleiotropy","Grip_Pleiotropy_P"), colnames(mr_res)))
   mr_res <- mr_res[, new_order]
 
   mr_res
@@ -297,12 +341,20 @@ MRplots <- function(MR_input_data,
                     plot.ylab,
                     outcome_label,
                     exposure_label,
-                    methods.plot   = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
+                    methods.plot   = c("IVW","RAPS","Egger","PRESSO","Horse"),
                     show.legend    = TRUE,
                     summary_df,
                     effect_scale   = "Beta",
                     custom_xlim    = NULL,
-                    custom_ylim    = NULL) {
+                    custom_ylim    = NULL,
+                    symmetric_ylim = TRUE) {
+
+  # GRIP uses a hyperbolic line (theta*x + b_i/x) that cannot be represented
+  # as a straight line on the scatter plot without being misleading.  It is
+  # therefore silently excluded from scatter plot rendering regardless of
+  # whether the user includes it in methods.plot.  GRIP estimates and the
+  # Grip_Pleiotropy diagnostic remain available in the numeric results table.
+  methods.plot <- methods.plot[methods.plot != "GRIP"]
 
   method_colors <- c(IVW = "chartreuse3", RAPS = "turquoise3", Egger = "cornflowerblue",
                      PRESSO = "red", Horse = "purple", GRIP = "darkorange")
@@ -321,17 +373,67 @@ MRplots <- function(MR_input_data,
   all_positive <- all(d.x >= 0, na.rm = TRUE)
   all_negative <- all(d.x <= 0, na.rm = TRUE)
   x_ext <- max(abs(d.x) + d.x.se, na.rm = TRUE)
-  y_ext <- max(abs(d.y + d.y.se), abs(d.y - d.y.se), na.rm = TRUE)
 
   auto_limx <- if (all_positive) c(0, x_ext) else if (all_negative) c(-x_ext, 0) else c(-x_ext, x_ext)
-  auto_limy <- c(-y_ext, y_ext)
 
-  # Pre-compute per-method slopes and p-values
-  slopes  <- list()
-  pvalues <- list()
+  # Pre-compute per-method slopes and p-values.
+  # Only methods explicitly listed in methods.plot are ever stored, so
+  # unselected methods can never leak into the legend.
+  slopes     <- list()
+  pvalues    <- list()
+  intercepts <- list()   # Egger intercept (a = 0 for all other methods)
+  int_pvals  <- list()   # Egger intercept p-value
   for (m in methods.plot) {
-    slopes[[m]]  <- get_slope_from_summary(df_row, m, effect_scale)
-    pvalues[[m]] <- get_p_from_summary(df_row, m)
+    slopes[[m]]     <- get_slope_from_summary(df_row, m, effect_scale)
+    pvalues[[m]]    <- get_p_from_summary(df_row, m)
+    # Retrieve Egger intercept and its p-value; set to 0 / NA for all other methods
+    if (m == "Egger") {
+      int_val <- if (!is.null(df_row) && nrow(df_row) > 0 && "Intercept_Est" %in% names(df_row))
+        suppressWarnings(as.numeric(df_row[["Intercept_Est"]])) else NA_real_
+      int_p   <- if (!is.null(df_row) && nrow(df_row) > 0 && "Intercept_P"   %in% names(df_row))
+        suppressWarnings(as.numeric(df_row[["Intercept_P"]]))   else NA_real_
+      intercepts[[m]] <- int_val
+      int_pvals[[m]]  <- int_p
+    } else {
+      intercepts[[m]] <- 0
+      int_pvals[[m]]  <- NA_real_
+    }
+  }
+
+  # Resolve x limits now so we can compute where method lines land at the
+  # x-axis extremes before finalising the y limits.
+  resolved_limx <- if (!is.null(custom_xlim)) custom_xlim else auto_limx
+
+  # Y-axis limits: combine the data point range (including error bars) with
+  # the predicted y values of every method line at the x-axis extremes.
+  # This ensures both data points and regression lines are fully visible
+  # regardless of scale (Beta, OR, or HR).
+  y_vals_data <- c(d.y + d.y.se, d.y - d.y.se)
+  y_vals_lines <- unlist(lapply(methods.plot, function(m) {
+    b <- slopes[[m]]
+    a <- if (!is.null(intercepts[[m]])) intercepts[[m]] else 0
+    if (is.na(a) || !is.finite(a)) a <- 0
+    if (!is.na(b) && is.finite(b)) {
+      c(a + b * resolved_limx[1], a + b * resolved_limx[2])
+    } else {
+      NULL
+    }
+  }))
+  y_all <- c(y_vals_data, y_vals_lines)
+  y_all <- y_all[is.finite(y_all)]
+
+  if (symmetric_ylim || effect_scale == "Beta") {
+    # Force the y range to be symmetric around zero (the null on the beta /
+    # log scale). This is the default and applies to every effect scale when
+    # symmetric_ylim = TRUE; for Beta it is always symmetric regardless.
+    y_ext     <- max(abs(y_all), na.rm = TRUE)
+    auto_limy <- c(-y_ext, y_ext)
+  } else {
+    # OR/HR with symmetric_ylim = FALSE: use the actual range of data + line
+    # endpoints with 10% padding (asymmetric).
+    y_pad     <- diff(range(y_all, na.rm = TRUE)) * 0.10
+    auto_limy <- c(min(y_all, na.rm = TRUE) - y_pad,
+                   max(y_all, na.rm = TRUE) + y_pad)
   }
 
   # Build axis labels: x-axis prefixed with log(OR)/log(HR) for non-Beta scales;
@@ -340,24 +442,26 @@ MRplots <- function(MR_input_data,
   slope_label <- if (effect_scale == "Beta") "beta" else paste0("log(", effect_scale, ")")
 
   list(
-    d.x          = d.x,
-    d.y          = d.y,
-    d.x.se       = d.x.se,
-    d.y.se       = d.y.se,
-    limx         = if (!is.null(custom_xlim)) custom_xlim else auto_limx,
-    limy         = if (!is.null(custom_ylim)) custom_ylim else auto_limy,
-    xlab         = paste0(xlab_prefix, plot.xlab, " ", exposure_label),
-    ylab         = paste(plot.ylab, outcome_label),
-    title        = if (!is.null(d.title)) d.title else
+    d.x           = d.x,
+    d.y           = d.y,
+    d.x.se        = d.x.se,
+    d.y.se        = d.y.se,
+    limx          = resolved_limx,
+    limy          = if (!is.null(custom_ylim)) custom_ylim else auto_limy,
+    xlab          = paste0(xlab_prefix, plot.xlab, " ", exposure_label),
+    ylab          = paste(plot.ylab, outcome_label),
+    title         = if (!is.null(d.title)) d.title else
       paste("Exposure:", exposure_label, "\nOutcome:", outcome_label),
-    subtitle     = d.subtitle,
-    methods      = methods.plot,
-    slopes       = slopes,
-    pvalues      = pvalues,
+    subtitle      = d.subtitle,
+    methods       = methods.plot,
+    slopes        = slopes,
+    pvalues       = pvalues,
+    intercepts    = intercepts,
+    int_pvals     = int_pvals,
     method_colors = method_colors,
     method_ltys   = method_ltys,
-    show.legend  = show.legend,
-    slope_label  = slope_label
+    show.legend   = show.legend,
+    slope_label   = slope_label
   )
 }
 
@@ -392,16 +496,51 @@ MRplots <- function(MR_input_data,
   legend_cols <- character()
   legend_ltys <- integer()
 
+  # Only methods explicitly stored in p$methods are iterated here —
+  # unselected methods are never present in p$methods, so they cannot
+  # appear in the legend (Fix 10).
   for (m in p$methods) {
     b   <- p$slopes[[m]]
     pv  <- p$pvalues[[m]]
     col <- p$method_colors[[m]]
     lty <- p$method_ltys[[m]]
 
+    # Retrieve the intercept for this method.
+    # Egger carries its estimated intercept; all others use 0.
+    # Guard against old plot objects that pre-date this slot.
+    a_val <- if (!is.null(p$intercepts[[m]])) p$intercepts[[m]] else 0
+    if (is.na(a_val) || !is.finite(a_val)) a_val <- 0
+
     if (!is.na(b) && is.finite(b)) {
-      graphics::abline(a = 0, b = b, lty = lty, lwd = 2, col = col)
-      legend_txt <- c(legend_txt, sprintf("%s: %s=%.3f, p=%.3g", m, p$slope_label, b, pv))
+      # Draw the regression line as a segment clipped to the x-axis range.
+      # abline() extends infinitely and only a tiny portion may be visible when
+      # the MR slope is large relative to the data range; segments() ensures the
+      # line fills the full visible x range exactly.
+      x0 <- p$limx[1]; x1 <- p$limx[2]
+      graphics::segments(x0, a_val + b * x0, x1, a_val + b * x1,
+                         lty = lty, lwd = 2, col = col)
+
+      if (m == "Egger") {
+        # For MR-Egger, include both slope and intercept in the legend.
+        # Distinguish between a genuine estimate and a value guarded to 0
+        # because Intercept_Est was NA/non-finite — show "intercept=NA" in
+        # the latter case to avoid implying the intercept was estimated as zero.
+        int_p     <- if (!is.null(p$int_pvals[[m]])) p$int_pvals[[m]] else NA_real_
+        orig_int  <- if (!is.null(p$intercepts[[m]])) p$intercepts[[m]] else NA_real_
+        int_avail <- !is.null(orig_int) && !is.na(orig_int) && is.finite(orig_int)
+        int_label <- if (int_avail) {
+          int_p_str <- if (!is.na(int_p) && is.finite(int_p)) sprintf("p=%.3g", int_p) else "p=NA"
+          sprintf("intercept=%.3f, %s", orig_int, int_p_str)
+        } else {
+          "intercept=NA"
+        }
+        legend_txt <- c(legend_txt,
+                        sprintf("%s: %s=%.3f, p=%.3g | %s", m, p$slope_label, b, pv, int_label))
+      } else {
+        legend_txt <- c(legend_txt, sprintf("%s: %s=%.3f, p=%.3g", m, p$slope_label, b, pv))
+      }
     } else {
+      # Method was selected but failed — keep the entry as "failed" (Fix 10)
       legend_txt <- c(legend_txt, sprintf("%s: failed", m))
     }
     legend_cols <- c(legend_cols, col)
@@ -456,8 +595,7 @@ MRplots <- function(MR_input_data,
 #'   iterations for MR-Horse. Default is \code{5000}.
 #' @param mr_horse_n_burnin Integer; number of MCMC burn-in samples for
 #'   MR-Horse. Default is \code{1000}.
-#' @param mr_grip_parameters List of additional parameters passed to MR-GRIP.
-#'   If \code{NULL}, default parameters are used.
+#' @param mr_grip_parameters Accepted for API compatibility; not used by MR-GRIP.
 #'
 #' @return A data frame combining results across all outcomes and exposures.
 #'   Each row represents one outcome-exposure pair. Columns include estimates,
@@ -580,13 +718,15 @@ run_mr_analysis <- function(MR_input_data,
       rows <- mr_combined$Outcome == outcomes[i]
       for (col in exp_cols_beta) {
         if (col %in% colnames(mr_combined))
-          mr_combined[rows, col] <- exp(mr_combined[rows, col])
+          mr_combined[rows, col] <- exp(suppressWarnings(as.numeric(mr_combined[rows, col])))
       }
     }
   }
 
   # Rename _Beta columns to _OR or _HR where needed.
-  # Since different outcomes may use different scales, we keep _Beta as the
+  # Column names intentionally remain without a scale suffix because different
+  # outcomes may use different scales; downstream functions read the Scale column
+  # to determine how to interpret the values.
   mr_combined
 }
 
@@ -634,6 +774,11 @@ run_mr_analysis <- function(MR_input_data,
 #'   the analysis.
 #' @param custom_ylim Optional numeric vector of length 2 for y-axis limits.
 #'   If \code{NULL}, limits are determined from the data.
+#' @param symmetric_ylim Logical; if \code{TRUE} (the default), the y-axis
+#'   limits are forced to be symmetric around zero (the null on the beta /
+#'   log scale) for every effect scale. If \code{FALSE}, Beta outcomes remain
+#'   symmetric while OR/HR outcomes use the data range with 10\% padding.
+#'   Ignored when \code{custom_ylim} is supplied.
 #'
 #' @return An \code{MRScatterPlots} object containing one plot parameter list
 #'   per outcome-exposure pair, together with outcome and exposure metadata.
@@ -693,12 +838,12 @@ run_mr_analysis <- function(MR_input_data,
 #' export_scatter_plots(plots, save_dir = tempdir(), file_type = "png")
 #'
 #' }
-#' @importFrom graphics plot abline arrows legend mtext
+#' @importFrom graphics plot abline arrows legend mtext segments
 #' @export
 plot_mr_scatter <- function(MR_input_data,
                             plot.xlab             = "Exposure",
                             plot.ylab             = "Outcome",
-                            methods.plot          = c("IVW","RAPS","Egger","PRESSO","Horse","GRIP"),
+                            methods.plot          = c("IVW","RAPS","Egger","PRESSO","Horse"),
                             NbDistribution_presso = 1000,
                             SignifThreshold_presso = 0.05,
                             mr_horse_n_iter       = 5000,
@@ -708,20 +853,47 @@ plot_mr_scatter <- function(MR_input_data,
                             effect_scale          = "Beta",
                             use_df_results        = TRUE,
                             custom_xlim           = NULL,
-                            custom_ylim           = NULL) {
+                            custom_ylim           = NULL,
+                            symmetric_ylim        = TRUE) {
 
   MR_input_data <- ensure_dummy_vars(MR_input_data)
 
-  # Compute summary results once if not supplied or not requested
+  # Compute summary results if not supplied or not requested.
+  # Mirror run_mr_analysis(): call valid.output() once per outcome so that
+  # per-outcome labels and scale are always correct with multiple outcomes.
+  # Also mirror the OR/HR exponentiation step so get_slope_from_summary()
+  # receives values on the expected scale regardless of the data source.
   if (is.null(summary_df) || !use_df_results) {
-    summary_df <- valid.output(
-      MR_input_data,
-      outcome.form   = effect_scale,
-      NbDistribution = NbDistribution_presso,
-      SignifThreshold = SignifThreshold_presso,
-      mr_horse_n_iter   = mr_horse_n_iter,
-      mr_horse_n_burnin = mr_horse_n_burnin
-    )
+    exp_cols_beta <- c("IVW","RAPS","Med","Egger","Presso","Horse","Grip",
+                       "IVW_Lower","RAPS_Lower","Med_Lower","Egger_Lower","Presso_lower","Horse_Lower","Grip_Lower",
+                       "IVW_Upper","RAPS_Upper","Med_Upper","Egger_Upper","Presso_upper","Horse_Upper","Grip_Upper")
+    outcomes_recompute <- unique(MR_input_data$Outcome)
+    # Recycle effect_scale to one value per outcome, matching run_mr_analysis() behaviour
+    scales_recompute <- if (length(effect_scale) == 1) rep(effect_scale, length(outcomes_recompute)) else effect_scale
+    summary_list <- vector("list", length(outcomes_recompute))
+    for (oi in seq_along(outcomes_recompute)) {
+      Outcome_sub  <- as.data.frame(MR_input_data[MR_input_data$Outcome == outcomes_recompute[oi], ])
+      scale_oi     <- scales_recompute[oi]
+      res_oi <- valid.output(
+        MR_input_data     = Outcome_sub,
+        outcome.form      = scale_oi,
+        NbDistribution    = NbDistribution_presso,
+        SignifThreshold   = SignifThreshold_presso,
+        mr_horse_n_iter   = mr_horse_n_iter,
+        mr_horse_n_burnin = mr_horse_n_burnin
+      )
+      # Exponentiate estimate/CI columns for OR/HR outcomes so that
+      # get_slope_from_summary() can log them back to the plotting scale,
+      # matching the behaviour of run_mr_analysis().
+      if (scale_oi %in% c("OR", "HR")) {
+        for (col in exp_cols_beta) {
+          if (col %in% colnames(res_oi))
+            res_oi[[col]] <- exp(res_oi[[col]])
+        }
+      }
+      summary_list[[oi]] <- res_oi
+    }
+    summary_df <- do.call(rbind, summary_list)
   }
 
   plots_list <- list()
@@ -748,7 +920,8 @@ plot_mr_scatter <- function(MR_input_data,
         summary_df     = summary_df,
         effect_scale   = out_scale,
         custom_xlim    = custom_xlim,
-        custom_ylim    = custom_ylim
+        custom_ylim    = custom_ylim,
+        symmetric_ylim = symmetric_ylim
       )
       outcomes_vec  <- c(outcomes_vec,  out)
       exposures_vec <- c(exposures_vec, ex)

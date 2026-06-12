@@ -28,17 +28,6 @@ get_method_col <- function(row, method, what, eff) {
                P        = if (method == "Egger")  "Egger_P_value" else if (method == "PRESSO") "Presso_p" else if (method == "Horse") "Horse_P" else if (method == "GRIP") "Grip_P" else paste0(method, "_P")
   )
 
-  if (method == "GRIP" && !nm %in% names(row)) {
-    alt <- sub("^Grip_", "GRIP_", nm)
-    if (alt %in% names(row)) nm <- alt
-  }
-
-  if (method == "GRIP" && what %in% c("Lower", "Upper") && !nm %in% names(row)) {
-    nm2 <- sub("Grip_Lower$", "Grip_Lower_adj", nm)
-    nm2 <- sub("Grip_Upper$", "Grip_Upper_adj", nm2)
-    if (nm2 %in% names(row)) nm <- nm2
-  }
-
   if (!nm %in% names(row)) return(NA_real_)
   suppressWarnings(as.numeric(row[[nm]]))
 }
@@ -114,7 +103,7 @@ get_method_col <- function(row, method, what, eff) {
 #' @import dplyr
 #' @importFrom MendelianRandomization mr_input mr_ivw
 #' @export
-GWAS_forest <- function(MR_input_data, report_form,
+GWAS_forest <- function(MR_input_data, report_form = "Beta",
                         custom_xlim = NULL,
                         dot_size = 2,
                         axis_text_size = 10,
@@ -309,7 +298,7 @@ MR_forest <- function(summary_df, effect,
     xlab_val <- if(curr_eff == "Beta") curr_eff else if (log_scale) paste0("log(", curr_eff, ")") else curr_eff
 
     df_row <- df %>% dplyr::filter(Outcome == curr_out, Exposure == curr_exp)
-    inst_count_label <- df_row$SNPs
+    inst_count_label <- df_row$Instruments[1]
     method_df <- data.frame(Method = methods, stringsAsFactors = FALSE)
 
     est_raw <- sapply(methods, function(m) get_method_col(df_row, m, "Estimate", curr_eff))

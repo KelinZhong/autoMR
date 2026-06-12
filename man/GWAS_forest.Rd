@@ -6,7 +6,7 @@
 \usage{
 GWAS_forest(
   MR_input_data,
-  report_form,
+  report_form = "Beta",
   custom_xlim = NULL,
   dot_size = 2,
   axis_text_size = 10,

@@ -5,7 +5,7 @@
 utils::globalVariables(c(
   "N", "theta", "bx0", "r", "a", "b", "c", "d", "vx0", "mx0",
   "K", "Tx", "mx", "sx0", "A", "B", "R", "Weights", "mu", "bx", "rho", "phi",
-  "by", "sy", "sx", "inprod", "T", "kappa", "mod_noOutliers"
+  "by", "sy", "sx", "inprod", "T", "kappa"
 ))
 
 # ==============================================================================
@@ -14,17 +14,31 @@ utils::globalVariables(c(
 # Source: https://github.com/MRCIEU/TwoSampleMR
 # ==============================================================================
 
-default_parameters_mr_grip <- function() {
-  list(
-    test_dist = "z", nboot = 1000, Cov = 0, penk = 20, phi = 1,
-    alpha = 0.05, Qthresh = 0.05, over.dispersion = TRUE,
-    loss.function = "huber", shrinkage = FALSE
-  )
-}
-
+#' MR-GRIP: a modified MR-Egger model with the Genotype Recoding Invariance Property
+#'
+#' Implements the modified MR-Egger model with the Genotype Recoding Invariance
+#' Property (MR-GRIP) due to Dudbridge and Bowden et al. (2025). The model
+#' multiplies each term of MR-Egger by the genotype-phenotype association,
+#' making results invariant to allele coding. The \code{parameters} argument
+#' is accepted for API compatibility but is not used; all weights and
+#' computations follow the original GRIP specification exactly.
+#'
+#' @param b_exp Vector of genetic effects on exposure.
+#' @param b_out Vector of genetic effects on outcome.
+#' @param se_exp Standard errors of genetic effects on exposure.
+#' @param se_out Standard errors of genetic effects on outcome.
+#' @param parameters Unused; accepted for API compatibility only.
+#'
+#' @return List with elements: \code{b}, \code{se}, \code{pval} (causal
+#'   estimate, SE, p-value); \code{b_i}, \code{se_i}, \code{pval_i}
+#'   (intercept and its SE and p-value); \code{b.adj}, \code{se.adj},
+#'   \code{pval.adj} (weak-instrument-adjusted estimate); \code{nsnp},
+#'   \code{mod}, \code{smod}, \code{dat}.
+#' @export
 mr_grip <- function(b_exp, b_out, se_exp, se_out, parameters) {
-  if (length(b_exp) != length(b_out)) stop("The lengths of b_exp and b_out are not equal.", call. = FALSE)
+  if (length(b_exp) != length(b_out))  stop("The lengths of b_exp and b_out are not equal.",  call. = FALSE)
   if (length(se_exp) != length(se_out)) stop("The lengths of se_exp and se_out are not equal.", call. = FALSE)
+  if (length(b_exp) != length(se_out)) stop("The lengths of b_exp and se_out are not equal.",  call. = FALSE)
 
   nulllist <- list(
     b = NA, se = NA, pval = NA, b_i = NA, se_i = NA, pval_i = NA,
@@ -32,39 +46,49 @@ mr_grip <- function(b_exp, b_out, se_exp, se_out, parameters) {
   )
   if (sum(!is.na(b_exp) & !is.na(b_out) & !is.na(se_exp) & !is.na(se_out)) < 3) return(nulllist)
 
-  dat <- data.frame(b_out = b_out, b_exp = b_exp, se_exp = se_exp, se_out = se_out)
+  dat      <- data.frame(b_out = b_out, b_exp = b_exp, se_exp = se_exp, se_out = se_out)
   grip_out <- b_out * b_exp
   grip_exp <- b_exp^2
-  grip_weights <- 1 / (b_exp^2 * se_out^2)
 
-  mod <- stats::lm(grip_out ~ grip_exp, weights = grip_weights)
+  # GRIP regression. Includes intercept. Weights under NOME assumption.
+  grip_weights <- 1 / (b_exp^2 * se_out^2)
+  mod  <- stats::lm(grip_out ~ grip_exp, weights = grip_weights)
   smod <- summary(mod)
-  b <- stats::coefficients(smod)[2, 1]
-  se <- stats::coefficients(smod)[2, 2]
-  b_i <- stats::coefficients(smod)[1, 1]
+  b    <- stats::coefficients(smod)[2, 1]
+  se   <- stats::coefficients(smod)[2, 2]
+  b_i  <- stats::coefficients(smod)[1, 1]
   se_i <- stats::coefficients(smod)[1, 2]
 
-  grip_weights_adj <- 1 / (se_out^2)
-  numer <- sum(grip_weights_adj) * sum(grip_weights_adj * b_out * b_exp * (b_exp^2 - 3 * se_exp^2)) -
-    sum(grip_weights_adj * b_out * b_exp) * sum(grip_weights_adj * (b_exp^2 - se_exp^2))
-  denom <- sum(grip_weights_adj) * sum(grip_weights_adj * (b_exp^4 - 6 * b_exp^2 * se_exp^2 + 3 * se_exp^4)) -
-    (sum(grip_weights_adj * (b_exp^2 - se_exp^2)))^2
+  # Weak instrument adjustment
+  grip_weights <- 1 / (se_out^2)
+  numer <- sum(grip_weights) *
+    sum(grip_weights * b_out * b_exp * (b_exp^2 - 3 * se_exp^2)) -
+    sum(grip_weights * b_out * b_exp) * sum(grip_weights * (b_exp^2 - se_exp^2))
+  denom <- sum(grip_weights) *
+    sum(grip_weights * (b_exp^4 - 6 * b_exp^2 * se_exp^2 + 3 * se_exp^4)) -
+    (sum(grip_weights * (b_exp^2 - se_exp^2)))^2
   b.adj <- numer / denom
 
-  var_out <- mean((b_out - (b * grip_exp + b_i) / b_exp)^2) * b_exp^2
-  numer_se <- sum(grip_weights_adj)^2 * sum(grip_weights_adj^2 * var_out * (b_exp^2 - 3 * se_exp^2)^2) +
-    sum(grip_weights_adj^2 * var_out) * sum(grip_weights_adj * (b_exp^2 - se_exp^2))^2 -
-    2 * sum(grip_weights_adj) * sum(grip_weights_adj * (b_exp^2 - se_exp^2)) *
-    sum(grip_weights_adj^2 * (b_exp^2 - se_exp^2) * var_out)
+  var_out  <- mean((b_out - (b * grip_exp + b_i) / b_exp)^2) * b_exp^2
+  numer_se <- sum(grip_weights)^2 *
+    sum(grip_weights^2 * var_out * (b_exp^2 - 3 * se_exp^2)^2) +
+    sum(grip_weights^2 * var_out) * sum(grip_weights * (b_exp^2 - se_exp^2))^2 -
+    2 *
+      sum(grip_weights) *
+      sum(grip_weights * (b_exp^2 - se_exp^2)) *
+      sum(grip_weights^2 * (b_exp^2 - se_exp^2) * var_out)
   se.adj <- sqrt(numer_se) / denom
 
-  pval <- 2 * stats::pt(abs(b / se), length(b_exp) - 2, lower.tail = FALSE)
-  pval_i <- 2 * stats::pt(abs(b_i / se_i), length(b_exp) - 2, lower.tail = FALSE)
+  pval    <- 2 * stats::pt(abs(b    / se),    length(b_exp) - 2, lower.tail = FALSE)
+  pval_i  <- 2 * stats::pt(abs(b_i  / se_i),  length(b_exp) - 2, lower.tail = FALSE)
   pval.adj <- 2 * stats::pt(abs(b.adj / se.adj), length(b_exp) - 2, lower.tail = FALSE)
 
-  list(b = b, se = se, pval = pval, b_i = b_i, se_i = se_i, pval_i = pval_i,
-       b.adj = b.adj, se.adj = se.adj, pval.adj = pval.adj, nsnp = length(b_exp),
-       mod = mod, smod = smod, dat = dat)
+  list(
+    b = b, se = se, pval = pval,
+    b_i = b_i, se_i = se_i, pval_i = pval_i,
+    b.adj = b.adj, se.adj = se.adj, pval.adj = pval.adj,
+    nsnp = length(b_exp), mod = mod, smod = smod, dat = dat
+  )
 }
 
 # ==============================================================================
@@ -133,7 +157,7 @@ mr_horse <- function(D, no_ini = 3, variable.names = "theta", n.iter = 10000, n.
   mr_estimate <- data.frame(
     "Estimate" = round(unname(summ$statistics[1]), 3), "SD" = round(unname(summ$statistics[2]), 3),
     "2.5% quantile" = round(unname(summ$quantiles[1]), 3), "97.5% quantile" = round(unname(summ$quantiles[5]), 3),
-    "Rhat" = round(unname(coda::gelman.diag(mr.coda)$psrf[1]), 3)
+    "Rhat" = round(unname(coda::gelman.diag(mr.coda)$psrf["theta", 1]), 3)
   )
   names(mr_estimate) <- c("Estimate", "SD", "2.5% quantile", "97.5% quantile", "Rhat")
   list("MR_Estimate" = mr_estimate, "MR_Coda" = mr.coda)
@@ -216,6 +240,11 @@ mr_presso <- function(BetaOutcome, BetaExposure, SdOutcome, SdExposure, data,
   if(OUTLIERtest) GlobalTest <- list(RSSobs = RSSobs[[1]], Pvalue = sum(RSSexp[1, ] > RSSobs[[1]])/NbDistribution)
   else GlobalTest <- list(RSSobs = RSSobs, Pvalue = sum(RSSexp > RSSobs)/NbDistribution)
 
+  # Initialise optional outputs so they are always present in the return value
+  OutlierTest <- NULL
+  BiasTest    <- NULL
+  mod_noOutliers <- NULL
+
   if(GlobalTest$Pvalue < SignifThreshold & OUTLIERtest){
     OutlierTest <- do.call("rbind", lapply(1:nrow(data), function(SNV){
       randomSNP <- do.call("rbind", lapply(randomData, function(mat) mat[SNV, ]))
@@ -246,11 +275,18 @@ mr_presso <- function(BetaOutcome, BetaExposure, SdOutcome, SdExposure, data,
   OriginalMR <- cbind.data.frame(BetaExposure, "Raw", summary(mod_all)$coefficients)
   colnames(OriginalMR) <- c("Exposure", "MR Analysis", "Causal Estimate", "Sd", "T-stat", "P-value")
   MR_final <- OriginalMR
-  if(exists("mod_noOutliers") && !is.null(mod_noOutliers)){
+  if(!is.null(mod_noOutliers)){
     OutlierCorrectedMR <- cbind.data.frame(BetaExposure, "Outlier-corrected", summary(mod_noOutliers)$coefficients, row.names = NULL)
     colnames(OutlierCorrectedMR) <- colnames(OriginalMR)
     MR_final <- rbind.data.frame(OriginalMR, OutlierCorrectedMR)
   }
 
-  list(`Main MR results` = MR_final, `MR-PRESSO results` = list(`Global Test` = GlobalTest))
+  list(
+    `Main MR results` = MR_final,
+    `MR-PRESSO results` = list(
+      `Global Test`      = GlobalTest,
+      `Outlier Test`     = OutlierTest,
+      `Distortion Test`  = BiasTest
+    )
+  )
 }

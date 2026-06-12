@@ -113,7 +113,8 @@ new_mr_scatter_plots <- function(plots, outcomes, exposures) {
 #'
 #' # Inspect what is stored; for fi_49item this prints:
 #' #   [1] fi_49item :: Zn
-#'#' # Retrieve the exact outcome/exposure labels stored in the object
+#'
+#' # Retrieve the exact outcome/exposure labels stored in the object
 #' out_name <- plots@outcomes[1]   # "fi_49item"
 #' exp_name <- plots@exposures[1]  # "Zn"
 #'
