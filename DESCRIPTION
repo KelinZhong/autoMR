@@ -1,7 +1,7 @@
 Package: autoMR
 Type: Package
-Title: Automated Mendelian Randomization Workflows and Visualizations
-Version: 1.2.0
+Title: Automated Mendelian Randomization Pipelines and Visualizations
+Version: 1.2.1
 Authors@R:
     c(
       person("Kelin", "Zhong", email = "kelinzhonguconn@gmail.com", role = c("aut", "cre")),
@@ -13,7 +13,7 @@ Description: Provides tools to summarize, analyze, and visualize results
     association data. The package includes functions for generating forest
     plots and scatter plots at the single-nucleotide polymorphism
     and Mendelian randomization method levels, and for fitting multiple
-    estimators in a unified workflow, including inverse-variance weighted
+    estimators in a unified pipeline, including inverse-variance weighted
     estimation, Mendelian randomization Egger regression,
     the weighted median estimator, the robust adjusted
     profile score, Mendelian randomization pleiotropy residual sum
