@@ -1,4 +1,4 @@
-Provides a streamlined workflow for summarizing, analyzing, and visualizing the results of Mendelian Randomization (MR) studies. 
+Provides a streamlined pipeline for summarizing, analyzing, and visualizing the results of Mendelian Randomization (MR) studies. 
 
 Includes tools for 
 1) generating SNP-level,
